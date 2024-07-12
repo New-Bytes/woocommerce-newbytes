@@ -12,7 +12,7 @@ const VERSION = '0.0.1';
 
 function nb_plugin_action_links($links)
 {
-    $settings = '<a href="'. get_admin_url(null, 'options-general.php?page=nb') .'">Ajustes</a>';
+    $settings = '<a href="' . get_admin_url(null, 'options-general.php?page=nb') . '">Ajustes</a>';
     array_unshift($links, $settings);
     return $links;
 }
@@ -59,6 +59,8 @@ function nb_get_token()
 
 function nb_callback($update_all = false)
 {
+    $start_time = microtime(true); // Tiempo de inicio
+
     $token = get_option('nb_token') ? get_option('nb_token') : nb_get_token();
     if (!$token) {
         echo 'No se pudo obtener el token.';
@@ -136,6 +138,15 @@ function nb_callback($update_all = false)
         }
     }
     update_option('nb_last_update', date("Y-m-d H:i", strtotime('-1 minute')));
+
+    $end_time = microtime(true); // Tiempo de finalización
+    $sync_duration = $end_time - $start_time;
+
+    $hours = floor($sync_duration / 3600);
+    $minutes = floor(($sync_duration % 3600) / 60);
+    $seconds = $sync_duration % 60;
+
+    echo 'Sincronización completada en ' . $hours . ' horas, ' . $minutes . ' minutos y ' . number_format($seconds, 2) . ' segundos.';
 }
 
 function nb_menu()
@@ -163,7 +174,7 @@ function nb_options_page()
     echo '<p>Gracias por utilizar nuestro conector de productos exclusivo de NewBytes.</p>';
     if (!is_plugin_active('featured-image-from-url/featured-image-from-url.php')) {
         echo '<p><strong>Para el funcionamiento de las imágenes se requiere la instalación del plugin: ';
-        echo '<a href="'.wp_nonce_url(self_admin_url('update.php?action=install-plugin&plugin=featured-image-from-url'), 'install-plugin_featured-image-from-url').'">FIFU (Featured Image From URL)</a>';
+        echo '<a href="' . wp_nonce_url(self_admin_url('update.php?action=install-plugin&plugin=featured-image-from-url'), 'install-plugin_featured-image-from-url') . '">FIFU (Featured Image From URL)</a>';
         echo '</strong></p>';
     }
     echo '<form method="post" action="options.php">';
@@ -191,7 +202,7 @@ function nb_options_page()
     echo '</tr>';
     echo '<tr>';
     echo '<th scope="row">Última actualización</th>';
-    echo '<td>'.esc_attr(get_option('nb_last_update') != '' ? date('d/m/Y H:i', strtotime(get_option('nb_last_update').'-3 hours')) : '--').'</td>';
+    echo '<td>' . esc_attr(get_option('nb_last_update') != '' ? date('d/m/Y H:i', strtotime(get_option('nb_last_update') . '-3 hours')) : '--') . '</td>';
     echo '</tr>';
     echo '</tbody>';
     echo '</table>';
@@ -204,10 +215,10 @@ function nb_options_page()
     echo '</form>';
     echo '</div>';
 
-    if(isset($_POST['update_all'])) {
+    if (isset($_POST['update_all'])) {
         delete_option('nb_last_update');
         echo '<p><details><summary><strong>Ver productos creados y actualizados:</strong></summary>';
-        echo '<ul>'.nb_callback(true).'</ul>';
+        echo '<ul>' . nb_callback(true) . '</ul>';
         echo '</details></p>';
     }
 }
