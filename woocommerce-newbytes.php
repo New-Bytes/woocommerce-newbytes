@@ -91,11 +91,7 @@ function nb_callback($update_all = false)
         echo 'Error al decodificar JSON de la solicitud de productos: ' . json_last_error_msg();
         return;
     }
-
-    // echo '<pre>';
-    // print_r($json);
-    // echo '</pre>';
-
+    
     foreach ($json as $row) {
         $id = null;
         $attributes = [];
@@ -149,6 +145,7 @@ function nb_callback($update_all = false)
     echo 'Sincronización completada en ' . $hours . ' horas, ' . $minutes . ' minutos y ' . number_format($seconds, 2) . ' segundos.';
 }
 
+
 function nb_menu()
 {
     add_options_page('Conector NB', 'Conector NB', 'manage_options', 'nb', 'nb_options_page');
@@ -169,18 +166,24 @@ function nb_options_page()
         wp_die(__('You do not have sufficient permissions to access this page.'));
     }
 
-    echo '<div class="wrap">';
-    echo '<h1 style="display:flex; align-items:center; gap:10px;">Conector NB</h1>';
+    $plugin_url = plugin_dir_url(__FILE__);
+    $icon_url = $plugin_url . 'assets/icon-128x128.png';
+
+    echo '<div class="wrap" style="display: flex; justify-content: center; align-items: center; height: 100%;">';
+    echo '<div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); text-align: center; max-width: 600px; width: 100%;">';
+    echo '<img src="' . esc_url($icon_url) . '" alt="Logo" style="width: 128px; height: 128px; margin-bottom: 20px;">';
+    echo '<h1 style="display: flex; align-items: center; justify-content: center; gap: 10px;">Conector NewBytes</h1>';
     echo '<p>Gracias por utilizar nuestro conector de productos exclusivo de NewBytes.</p>';
+    echo '<p>Si no tienes credenciales, puedes visitar la <a href="https://developers.nb.com.ar/" target="_blank">documentación oficial de NewBytes</a>.</p>';
     if (!is_plugin_active('featured-image-from-url/featured-image-from-url.php')) {
         echo '<p><strong>Para el funcionamiento de las imágenes se requiere la instalación del plugin: ';
         echo '<a href="' . wp_nonce_url(self_admin_url('update.php?action=install-plugin&plugin=featured-image-from-url'), 'install-plugin_featured-image-from-url') . '">FIFU (Featured Image From URL)</a>';
         echo '</strong></p>';
     }
-    echo '<form method="post" action="options.php">';
+    echo '<form method="post" action="options.php" style="display: inline-block; text-align: left;">';
     settings_fields('nb_options');
     do_settings_sections('nb_options');
-    echo '<table class="form-table" role="presentation">';
+    echo '<table class="form-table" role="presentation" style="margin: 0 auto;">';
     echo '<tbody>';
     echo '<tr>';
     echo '<th scope="row">Usuario *</th>';
@@ -208,11 +211,17 @@ function nb_options_page()
     echo '</table>';
     submit_button();
     echo '</form>';
-    echo '<form method="post">';
+    echo '<form method="post" style="margin-top: 20px;">';
     echo '<p>Si cambiaste los markups o algún ajuste, puedes resincronizar todos los productos:</p>';
     echo '<input type="hidden" name="update_all"/>';
-    echo '<button type="submit" class="button button-secondary">Actualizar todo</button>';
+    echo '<button type="submit" class="button button-secondary" id="update-all-btn">';
+    echo '<span id="update-all-text">Actualizar todo</span>';
+    echo '<span id="update-all-spinner" style="display: none;">';
+    echo '<i class="fas fa-spinner fa-spin" style="font-size: 20px;"></i>';
+    echo '</span>';
+    echo '</button>';
     echo '</form>';
+    echo '</div>';
     echo '</div>';
 
     if (isset($_POST['update_all'])) {
@@ -221,7 +230,21 @@ function nb_options_page()
         echo '<ul>' . nb_callback(true) . '</ul>';
         echo '</details></p>';
     }
+
+    echo '<script>
+    document.getElementById("update-all-btn").addEventListener("click", function() {
+        document.getElementById("update-all-text").style.display = "none";
+        document.getElementById("update-all-spinner").style.display = "inline-block";
+    });
+    </script>';
 }
+
+// Asegúrate de incluir FontAwesome en tu tema
+function enqueue_fontawesome()
+{
+    wp_enqueue_style('fontawesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css');
+}
+add_action('admin_enqueue_scripts', 'enqueue_fontawesome');
 
 function nb_callback_full()
 {
