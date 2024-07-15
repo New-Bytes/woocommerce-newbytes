@@ -26,7 +26,7 @@ function nb_get_token()
         'body' => json_encode(array(
             'user' => get_option('nb_user'),
             'password' => get_option('nb_password'),
-            'mode' => 'api'
+            'mode' => 'wp-extension'
         )),
         'timeout' => '5',
         'blocking' => true,
