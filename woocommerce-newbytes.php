@@ -253,16 +253,16 @@ function nb_callback_full()
 
 function nb_cron_interval($schedules)
 {
-    $schedules['every_minute'] = array(
-        'interval'  => 60,
-        'display'   => 'Every minute'
+    $schedules['every_hour'] = array(
+        'interval'  => 3600,
+        'display'   => 'Every hour'
     );
     return $schedules;
 }
 
 function nb_activation()
 {
-    wp_schedule_event(time(), 'every_minute', 'nb_cron_hook');
+    wp_schedule_event(time(), 'every_hour', 'nb_cron_hook');
 }
 
 function nb_deactivation()
@@ -278,3 +278,4 @@ add_action('nb_cron_hook', 'nb_callback');
 add_filter('cron_schedules', 'nb_cron_interval');
 register_activation_hook(__FILE__, 'nb_activation');
 register_deactivation_hook(__FILE__, 'nb_deactivation');
+?>
