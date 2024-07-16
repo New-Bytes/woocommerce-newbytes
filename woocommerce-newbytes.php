@@ -126,6 +126,10 @@ function nb_callback($update_all = false)
             $product->set_manage_stock(true);
             $product->set_stock_quantity($row['amountStock']);
             $product->set_stock_status($row['amountStock'] > 0 ? 'instock' : 'outofstock');
+            $product->set_weight($row['weightAverage']);
+            $product->set_width($row['widthAverage']);
+            $product->set_length($row['lengthAverage']);
+            $product->set_height($row['highAverage']);
             $product->save();
 
             if (is_plugin_active('featured-image-from-url/featured-image-from-url.php') || is_plugin_active('fifu-premium/fifu-premium.php')) {
