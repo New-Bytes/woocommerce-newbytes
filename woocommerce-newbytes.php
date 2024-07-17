@@ -35,7 +35,7 @@ function nb_get_token()
     $response = wp_remote_post(API_URL . '/auth/login', $args);
 
     if (is_wp_error($response)) {
-        echo 'Error en la solicitud de token: ' . $response->get_error_message();
+        nb_show_error_message('Error en la solicitud de token: ' . $response->get_error_message());
         return null;
     }
 
@@ -43,7 +43,7 @@ function nb_get_token()
     $json = json_decode($body, true);
 
     if (json_last_error() !== JSON_ERROR_NONE) {
-        echo 'Error al decodificar JSON de la solicitud de token: ' . json_last_error_msg();
+        nb_show_error_message('Error al decodificar JSON de la solicitud de token: ' . json_last_error_msg());
         return null;
     }
 
@@ -52,8 +52,7 @@ function nb_get_token()
         return $json['token'];
     }
 
-    echo 'Token no encontrado en la respuesta: ';
-    print_r($json);
+    nb_show_error_message('Token no encontrado en la respuesta: '. $json);
     return null;
 }
 
@@ -63,7 +62,7 @@ function nb_callback($update_all = false)
 
     $token = get_option('nb_token') ? get_option('nb_token') : nb_get_token();
     if (!$token) {
-        echo 'No se pudo obtener el token.';
+        nb_show_error_message('No fue posible obtener el token.');
         return;
     }
 
@@ -80,7 +79,7 @@ function nb_callback($update_all = false)
     $response = wp_remote_get($url, $args);
 
     if (is_wp_error($response)) {
-        echo 'Error en la solicitud de productos: ' . $response->get_error_message();
+        nb_show_error_message('Error en la solicitud de productos: ' . $response->get_error_message());
         return;
     }
 
@@ -88,13 +87,12 @@ function nb_callback($update_all = false)
     $json = json_decode($body, true);
 
     if (json_last_error() !== JSON_ERROR_NONE) {
-        echo 'Error al decodificar JSON de la solicitud de productos: ' . json_last_error_msg();
+        nb_show_error_message('Error al decodificar JSON de la solicitud de productos: ' . json_last_error_msg());
         return;
     }
     
     foreach ($json as $row) {
         $id = null;
-        $attributes = [];
 
         $category_term = term_exists($row['category'], 'product_cat');
         if ($category_term == null && !is_numeric($row['category'])) {
@@ -137,7 +135,7 @@ function nb_callback($update_all = false)
             }
         }
     }
-    update_option('nb_last_update', date("Y-m-d H:i", strtotime('-1 minute')));
+    update_option('nb_last_update', date("Y-m-d H:i"));
 
     $end_time = microtime(true); // Tiempo de finalización
     $sync_duration = $end_time - $start_time;
@@ -209,14 +207,14 @@ function nb_options_page()
     echo '</tr>';
     echo '<tr>';
     echo '<th scope="row">Última actualización</th>';
-    echo '<td>' . esc_attr(get_option('nb_last_update') != '' ? date('d/m/Y H:i', strtotime(get_option('nb_last_update') . '-3 hours')) : '--') . '</td>';
+    echo '<td id=last_update>' . esc_attr(get_option('nb_last_update') != '' ? date('d/m/Y H:i', strtotime(get_option('nb_last_update') . '-3 hours')) : '--') . '</td>';
     echo '</tr>';
     echo '</tbody>';
     echo '</table>';
     submit_button();
     echo '</form>';
     echo '<form method="post" style="margin-top: 20px;">';
-    echo '<p>Si cambiaste los markups o algún ajuste, puedes resincronizar todos los productos:</p>';
+    echo '<p>Si cambiaste los markups o realizaste algún ajuste, puedes resincronizar todos los productos:</p>';
     echo '<input type="hidden" name="update_all"/>';
     echo '<button type="submit" class="button button-secondary" id="update-all-btn">';
     echo '<span id="update-all-text">Actualizar todo</span>';
@@ -229,10 +227,10 @@ function nb_options_page()
     echo '</div>';
 
     if (isset($_POST['update_all'])) {
-        delete_option('nb_last_update');
-        echo '<p><details><summary><strong>Ver productos creados y actualizados:</strong></summary>';
+        echo '<p><details><summary><strong>Respuesta del conector NB</strong></summary>';
         echo '<ul>' . nb_callback(true) . '</ul>';
         echo '</details></p>';
+        nb_show_last_update();
     }
 
     echo '<script>
@@ -272,6 +270,19 @@ function nb_activation()
 function nb_deactivation()
 {
     wp_clear_scheduled_hook('nb_cron_hook');
+}
+
+function nb_show_error_message($error)
+{
+    echo '<p style="color: red;">'. $error .'</p>'; 
+}
+
+function nb_show_last_update()
+{
+    $last_update = esc_attr(get_option('nb_last_update') != '' ? date('d/m/Y H:i', strtotime(get_option('nb_last_update') . '-3 hours')) : '--');
+    echo '<script>
+    document.getElementById("last_update").innerText = "'. $last_update .'";
+    </script>';
 }
 
 
