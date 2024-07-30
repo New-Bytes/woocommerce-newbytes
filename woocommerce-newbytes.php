@@ -52,7 +52,7 @@ function nb_get_token()
         return $json['token'];
     }
 
-    nb_show_error_message('Token no encontrado en la respuesta: '. $json);
+    nb_show_error_message('Token no encontrado en la respuesta: ' . $json);
     return null;
 }
 
@@ -66,13 +66,13 @@ function nb_callback($update_all = false)
         return;
     }
 
-    $url = API_URL . '/';
+    $url  = API_URL.'/';
     $args = array(
-        'headers' => array(
-            'Authorization' => 'Bearer ' . $token,
-            'Content-Type' => 'application/json'
+        'headers'  => array(
+            'Authorization' => 'Bearer '.$token,
+            'Content-Type'  => 'application/json'
         ),
-        'timeout' => '5',
+        'timeout'  => '5',
         'blocking' => true,
     );
 
@@ -90,7 +90,7 @@ function nb_callback($update_all = false)
         nb_show_error_message('Error al decodificar JSON de la solicitud de productos: ' . json_last_error_msg());
         return;
     }
-    
+
     foreach ($json as $row) {
         $id = null;
 
@@ -115,9 +115,14 @@ function nb_callback($update_all = false)
         }
 
         if ($id) {
-            $price = $row['price']['finalPriceWithUtility'] * $row['cotizacion'];
+            $price = $row['price']['finalPrice'] * $row['cotizacion'];
+
+            if (isset($row['price']['finalPriceWithUtility']) && $row['price']['finalPriceWithUtility'] > 0) {
+                $price = $row['price']['finalPriceWithUtility'] * $row['cotizacion'];
+            }
+
             $product = wc_get_product($id);
-            $product->set_sku(get_option('nb_prefix') . $row['sku']);
+            $product->set_sku(get_option('nb_prefix').$row['sku']);
             $product->set_short_description(get_option('nb_description'));
             $product->set_category_ids(array($category_term['term_id']));
             $product->set_regular_price($price);
@@ -274,14 +279,14 @@ function nb_deactivation()
 
 function nb_show_error_message($error)
 {
-    echo '<p style="color: red;">'. $error .'</p>'; 
+    echo '<p style="color: red;">' . $error . '</p>';
 }
 
 function nb_show_last_update()
 {
     $last_update = esc_attr(get_option('nb_last_update') != '' ? date('d/m/Y H:i', strtotime(get_option('nb_last_update') . '-3 hours')) : '--');
     echo '<script>
-    document.getElementById("last_update").innerText = "'. $last_update .'";
+    document.getElementById("last_update").innerText = "' . $last_update . '";
     </script>';
 }
 
@@ -293,4 +298,3 @@ add_action('nb_cron_hook', 'nb_callback');
 add_filter('cron_schedules', 'nb_cron_interval');
 register_activation_hook(__FILE__, 'nb_activation');
 register_deactivation_hook(__FILE__, 'nb_deactivation');
-?>
