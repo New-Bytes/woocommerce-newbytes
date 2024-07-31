@@ -72,7 +72,7 @@ function nb_callback($update_all = false)
             'Authorization' => 'Bearer '.$token,
             'Content-Type'  => 'application/json'
         ),
-        'timeout'  => '5',
+        'timeout'  => '30',
         'blocking' => true,
     );
 
