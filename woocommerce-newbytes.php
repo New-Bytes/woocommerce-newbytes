@@ -34,7 +34,9 @@ function nb_get_token()
 
     $response = wp_remote_post(API_URL . '/auth/login', $args);
 
+
     if (is_wp_error($response)) {
+        return var_dump($response);
         nb_show_error_message('Error en la solicitud de token: ' . $response->get_error_message());
         return null;
     }
@@ -66,10 +68,10 @@ function nb_callback($update_all = false)
         return;
     }
 
-    $url  = API_URL.'/';
+    $url  = API_URL . '/';
     $args = array(
         'headers'  => array(
-            'Authorization' => 'Bearer '.$token,
+            'Authorization' => 'Bearer ' . $token,
             'Content-Type'  => 'application/json'
         ),
         'timeout'  => '30',
@@ -122,7 +124,7 @@ function nb_callback($update_all = false)
             }
 
             $product = wc_get_product($id);
-            $product->set_sku(get_option('nb_prefix').$row['sku']);
+            $product->set_sku(get_option('nb_prefix') . $row['sku']);
             $product->set_short_description(get_option('nb_description'));
             $product->set_category_ids(array($category_term['term_id']));
             $product->set_regular_price($price);
