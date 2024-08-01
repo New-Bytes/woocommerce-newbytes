@@ -36,12 +36,15 @@ function nb_get_token()
 
 
     if (is_wp_error($response)) {
-        return var_dump($response);
+        return var_dump($response);exit;
         nb_show_error_message('Error en la solicitud de token: ' . $response->get_error_message());
         return null;
     }
 
     $body = wp_remote_retrieve_body($response);
+
+    return var_dump($response);exit;
+
     $json = json_decode($body, true);
 
     if (json_last_error() !== JSON_ERROR_NONE) {
