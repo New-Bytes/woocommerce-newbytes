@@ -7,7 +7,7 @@ Author URI: https://nb.com.ar
 Version: 0.0.1
 */
 
-const API_URL_NB = 'https://api.nb.com.ar/v1';
+const API_URL_NB = 'https://gamma.api.nb.com.ar/v1';
 const VERSION = '0.0.1';
 
 function nb_plugin_action_links($links)
@@ -26,7 +26,8 @@ function nb_get_token()
         'body' => json_encode(array(
             'user' => get_option('nb_user'),
             'password' => get_option('nb_password'),
-            'mode' => 'wp-extension'
+            'mode' => 'wp-extension',
+            'domain' =>  home_url()
         )),
         'timeout' => '5',
         'blocking' => true,
@@ -40,6 +41,7 @@ function nb_get_token()
     }
 
     $body = wp_remote_retrieve_body($response);
+
     $json = json_decode($body, true);
 
     if (json_last_error() !== JSON_ERROR_NONE) {
@@ -52,17 +54,29 @@ function nb_get_token()
         return $json['token'];
     }
 
-    nb_show_error_message('Token no encontrado en la respuesta: ' . $json);
+    nb_show_error_message('Token no encontrado en la respuesta: ' . json_encode($json));
     return null;
+}
+function output_response($data)
+{
+    echo json_encode($data);
 }
 
 function nb_callback($update_all = false)
 {
+    // Guardar límites originales
+    $original_max_execution_time = ini_get('max_execution_time');
+    $original_memory_limit = ini_get('memory_limit');
+
+    // Establecer nuevos límites
+    ini_set('max_execution_time', '300'); // 5 minutos
+    ini_set('memory_limit', '512M'); // 512 MB
+
     $start_time = microtime(true); // Tiempo de inicio
 
     $token = get_option('nb_token') ? get_option('nb_token') : nb_get_token();
     if (!$token) {
-        nb_show_error_message('No fue posible obtener el token.');
+        output_response(array('error' => 'No fue posible obtener el token.'));
         return;
     }
 
@@ -79,7 +93,7 @@ function nb_callback($update_all = false)
     $response = wp_remote_get($url, $args);
 
     if (is_wp_error($response)) {
-        nb_show_error_message('Error en la solicitud de productos: ' . $response->get_error_message());
+        output_response(array('error' => 'Error en la solicitud de productos: ' . $response->get_error_message()));
         return;
     }
 
@@ -87,9 +101,12 @@ function nb_callback($update_all = false)
     $json = json_decode($body, true);
 
     if (json_last_error() !== JSON_ERROR_NONE) {
-        nb_show_error_message('Error al decodificar JSON de la solicitud de productos: ' . json_last_error_msg());
+        output_response(array('error' => 'Error al decodificar JSON de la solicitud de productos: ' . json_last_error_msg()));
         return;
     }
+
+    $updated_count = 0;
+    $created_count = 0;
 
     foreach ($json as $row) {
         $id = null;
@@ -103,7 +120,7 @@ function nb_callback($update_all = false)
 
         $id = wc_get_product_id_by_sku(get_option('nb_prefix') . $row['sku']);
         if ($id) {
-            echo '<li>Actualizado: ' . esc_html($row['title']) . "</li>";
+            $updated_count++;
         } elseif ($row['amountStock'] > 0) {
             $product_data = array(
                 'post_title'   => $row['title'],
@@ -111,7 +128,7 @@ function nb_callback($update_all = false)
                 'post_status'  => 'publish',
             );
             $id = wp_insert_post($product_data);
-            echo '<li>Creado: ' . esc_html($row['title']) . "</li>";
+            $created_count++;
         }
 
         if ($id) {
@@ -149,9 +166,22 @@ function nb_callback($update_all = false)
     $minutes = floor(($sync_duration % 3600) / 60);
     $seconds = $sync_duration % 60;
 
-    echo 'Sincronización completada en ' . $hours . ' horas, ' . $minutes . ' minutos y ' . number_format($seconds, 2) . ' segundos.';
-}
+    $response_data = array(
+        'updated' => $updated_count,
+        'created' => $created_count,
+        'sync_duration' => array(
+            'hours' => $hours,
+            'minutes' => $minutes,
+            'seconds' => number_format($seconds, 2)
+        )
+    );
 
+    output_response($response_data);
+
+    // Restaurar límites originales
+    ini_set('max_execution_time', $original_max_execution_time);
+    ini_set('memory_limit', $original_memory_limit);
+}
 
 function nb_menu()
 {
@@ -298,3 +328,24 @@ add_action('nb_cron_hook', 'nb_callback');
 add_filter('cron_schedules', 'nb_cron_interval');
 register_activation_hook(__FILE__, 'nb_activation');
 register_deactivation_hook(__FILE__, 'nb_deactivation');
+
+
+// Registra el endpoint REST personalizado
+add_action('rest_api_init', function () {
+    register_rest_route('nb/v1', '/sync', array(
+        'methods' => 'POST',
+        'callback' => 'nb_sync_catalog',
+        'permission_callback' => '__return_true',
+    ));
+});
+
+
+// Función de callback para el endpoint de sincronización
+function nb_sync_catalog(WP_REST_Request $request)
+{
+    // Llamar a la función de sincronización del catálogo
+    nb_callback();
+
+    // Devolver una respuesta exitosa
+    return new WP_REST_Response('Sincronización completada', 200);
+}
