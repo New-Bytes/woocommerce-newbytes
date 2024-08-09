@@ -266,35 +266,35 @@ function nb_options_page()
     $current_version = latest_version_of_nb();
     $show_new_version_button = ($latest_commit !== $current_version);
 
-    if ($show_new_version_button) {
-        echo '<form method="post" style="margin-top: 20px;">';
-        echo '<button type="button" id="update-connector-btn" style="
-            min-width: 130px;
-            height: 40px;
-            color: #fff;
-            padding: 5px 10px;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 5px;
-            border: none;
-            background-color: #FFC300;
-        ">Actualizar Conector NB</button>';
-        echo '</form>';
-    } else {
-        echo '<form method="post" style="margin-top: 20px;">';
-        echo '<button type="button" style="
-            min-width: 130px;
-            height: 40px;
-            color: #fff;
-            padding: 5px 10px;
-            font-weight: bold;
-            cursor: not-allowed;
-            border-radius: 5px;
-            border: none;
-            background-color: #e0e0e0;
-        " disabled>Actualizado</button>';
-        echo '</form>';
-    }
+    // if ($show_new_version_button) {
+    //     echo '<form method="post" style="margin-top: 20px;">';
+    //     echo '<button type="button" id="update-connector-btn" style="
+    //         min-width: 130px;
+    //         height: 40px;
+    //         color: #fff;
+    //         padding: 5px 10px;
+    //         font-weight: bold;
+    //         cursor: pointer;
+    //         border-radius: 5px;
+    //         border: none;
+    //         background-color: #FFC300;
+    //     ">Actualizar Conector NB</button>';
+    //     echo '</form>';
+    // } else {
+    //     echo '<form method="post" style="margin-top: 20px;">';
+    //     echo '<button type="button" style="
+    //         min-width: 130px;
+    //         height: 40px;
+    //         color: #fff;
+    //         padding: 5px 10px;
+    //         font-weight: bold;
+    //         cursor: not-allowed;
+    //         border-radius: 5px;
+    //         border: none;
+    //         background-color: #e0e0e0;
+    //     " disabled>Actualizado</button>';
+    //     echo '</form>';
+    // }
 
 
     echo '<div class="wrap" style="display: flex; justify-content: center; align-items: center; height: 100%;">';
@@ -480,7 +480,7 @@ function get_latest_commit()
 
 function latest_version_of_nb()
 {
-    return '8290e38b786a75dd27cd1f9cdea7e49c90983ed51';
+    return '8290e38b786a75dd27cd1f9cdea7e49c90983ed5';
 }
 
 
