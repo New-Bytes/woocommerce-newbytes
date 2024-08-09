@@ -7,7 +7,7 @@ Author URI: https://nb.com.ar
 Version: 0.0.1
 */
 
-const API_URL_NB = 'https://gamma.api.nb.com.ar/v1';
+const API_URL_NB = 'https://api.nb.com.ar/v1';
 const VERSION = '0.0.1';
 
 function nb_plugin_action_links($links)
