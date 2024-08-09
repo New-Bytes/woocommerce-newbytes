@@ -64,123 +64,178 @@ function output_response($data)
 
 function nb_callback($update_all = false)
 {
-    // Guardar límites originales
-    $original_max_execution_time = ini_get('max_execution_time');
-    $original_memory_limit = ini_get('memory_limit');
+    try {
+        // Guardar límites originales
+        $original_max_execution_time = ini_get('max_execution_time');
+        $original_memory_limit = ini_get('memory_limit');
 
-    // Establecer nuevos límites
-    ini_set('max_execution_time', '300'); // 5 minutos
-    ini_set('memory_limit', '512M'); // 512 MB
+        // Establecer nuevos límites
+        ini_set('max_execution_time', '1800'); // 30 minutos
+        ini_set('memory_limit', '2048M'); // 2 GB
 
-    $start_time = microtime(true); // Tiempo de inicio
+        $start_time = microtime(true); // Tiempo de inicio
 
-    $token = get_option('nb_token') ? get_option('nb_token') : nb_get_token();
-    if (!$token) {
-        output_response(array('error' => 'No fue posible obtener el token.'));
-        return;
-    }
+        $token = get_option('nb_token') ? get_option('nb_token') : nb_get_token();
+        if (!$token) {
+            output_response(array('error' => 'No fue posible obtener el token.'));
+            return;
+        }
 
-    $url  = API_URL_NB . '/';
-    $args = array(
-        'headers'  => array(
-            'Authorization' => 'Bearer ' . $token,
-            'Content-Type'  => 'application/json'
-        ),
-        'timeout'  => '30',
-        'blocking' => true,
-    );
+        $url = API_URL_NB . '/';
+        $args = array(
+            'headers'  => array(
+                'Authorization' => 'Bearer ' . $token,
+                'Content-Type'  => 'application/json'
+            ),
+            'timeout'  => 30,
+            'blocking' => true,
+        );
 
-    $response = wp_remote_get($url, $args);
+        $response = wp_remote_get($url, $args);
 
-    if (is_wp_error($response)) {
-        output_response(array('error' => 'Error en la solicitud de productos: ' . $response->get_error_message()));
-        return;
-    }
+        if (is_wp_error($response)) {
+            output_response(array('error' => 'Error en la solicitud de productos: ' . $response->get_error_message()));
+            return;
+        }
 
-    $body = wp_remote_retrieve_body($response);
-    $json = json_decode($body, true);
+        $body = wp_remote_retrieve_body($response);
+        $json = json_decode($body, true);
 
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        output_response(array('error' => 'Error al decodificar JSON de la solicitud de productos: ' . json_last_error_msg()));
-        return;
-    }
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            output_response(array('error' => 'Error al decodificar JSON de la solicitud de productos: ' . json_last_error_msg()));
+            return;
+        }
 
-    $updated_count = 0;
-    $created_count = 0;
+        // Obtener todos los SKUs existentes de WooCommerce con el prefijo especificado
+        $prefix = get_option('nb_prefix');
+        $args = array(
+            'limit'    => -1,
+            'return'   => 'ids',
+            'paginate' => false,
+            'meta_query' => array(
+                array(
+                    'key'     => '_sku',
+                    'value'   => '^' . $prefix,
+                    'compare' => 'REGEXP'
+                )
+            )
+        );
 
-    foreach ($json as $row) {
-        $id = null;
+        $existing_products = wc_get_products($args);
+        $existing_skus = array();
 
-        $category_term = term_exists($row['category'], 'product_cat');
-        if ($category_term == null && !is_numeric($row['category'])) {
-            if ($row['category'] != '') {
-                $category_term = wp_insert_term($row['category'], 'product_cat');
+        foreach ($existing_products as $product_id) {
+            $product = wc_get_product($product_id);
+            $existing_skus[$product->get_sku()] = $product_id;
+        }
+
+        // Procesamiento de productos
+        $updated_count = 0;
+        $created_count = 0;
+        $categories_cache = array();
+
+        foreach ($json as $row) {
+            $id = null;
+
+            // Manejo de categoría
+            if (!isset($categories_cache[$row['category']])) {
+                $category_term = term_exists($row['category'], 'product_cat');
+                if (!$category_term && !is_numeric($row['category'])) {
+                    if ($row['category'] != '') {
+                        $category_term = wp_insert_term($row['category'], 'product_cat');
+                    }
+                }
+                $categories_cache[$row['category']] = $category_term ? $category_term['term_id'] : null;
+            } else {
+                $category_term = $categories_cache[$row['category']];
+            }
+
+            $sku = $prefix . $row['sku'];
+
+            // Validar si el SKU ya existe
+            if (isset($existing_skus[$sku])) {
+                $id = $existing_skus[$sku];
+                $updated_count++;
+            } elseif ($row['amountStock'] > 0) {
+                $product_data = array(
+                    'post_title'   => $row['title'],
+                    'post_type'    => 'product',
+                    'post_status'  => 'publish',
+                );
+                $id = wp_insert_post($product_data);
+                $created_count++;
+            }
+
+            if ($id) {
+                try {
+                    $price = $row['price']['finalPrice'] * $row['cotizacion'];
+
+                    if (isset($row['price']['finalPriceWithUtility']) && $row['price']['finalPriceWithUtility'] > 0) {
+                        $price = $row['price']['finalPriceWithUtility'] * $row['cotizacion'];
+                    }
+
+                    $product = wc_get_product($id);
+                    $product->set_sku($sku);
+                    $product->set_short_description(get_option('nb_description'));
+                    if ($category_term) {
+                        $product->set_category_ids(array($category_term));
+                    }
+                    $product->set_regular_price($price);
+                    $product->set_manage_stock(true);
+                    $product->set_stock_quantity($row['amountStock']);
+                    $product->set_stock_status($row['amountStock'] > 0 ? 'instock' : 'outofstock');
+                    $product->set_weight($row['weightAverage']);
+                    $product->set_width($row['widthAverage']);
+                    $product->set_length($row['lengthAverage']);
+                    $product->set_height($row['highAverage']);
+                    $product->save();
+
+                    // Optimización de imagen destacada
+                    if (!empty($row['mainImage']) && (is_plugin_active('featured-image-from-url/featured-image-from-url.php') || is_plugin_active('fifu-premium/fifu-premium.php'))) {
+                        fifu_dev_set_image($id, $row['mainImage']);
+                    }
+                } catch (Exception $e) {
+                    // Manejar errores relacionados con SKU duplicados o inválidos
+                    error_log('Error al procesar el producto con SKU ' . $sku . ': ' . $e->getMessage());
+                    continue; // Saltar este producto y continuar con los siguientes
+                }
             }
         }
 
-        $id = wc_get_product_id_by_sku(get_option('nb_prefix') . $row['sku']);
-        if ($id) {
-            $updated_count++;
-        } elseif ($row['amountStock'] > 0) {
-            $product_data = array(
-                'post_title'   => $row['title'],
-                'post_type'    => 'product',
-                'post_status'  => 'publish',
-            );
-            $id = wp_insert_post($product_data);
-            $created_count++;
-        }
+        update_option('nb_last_update', date("Y-m-d H:i"));
 
-        if ($id) {
-            $price = $row['price']['finalPrice'] * $row['cotizacion'];
+        $end_time = microtime(true); // Tiempo de finalización
+        $sync_duration = $end_time - $start_time;
 
-            if (isset($row['price']['finalPriceWithUtility']) && $row['price']['finalPriceWithUtility'] > 0) {
-                $price = $row['price']['finalPriceWithUtility'] * $row['cotizacion'];
-            }
+        $hours = floor($sync_duration / 3600);
+        $minutes = floor(($sync_duration % 3600) / 60);
+        $seconds = $sync_duration % 60;
 
-            $product = wc_get_product($id);
-            $product->set_sku(get_option('nb_prefix') . $row['sku']);
-            $product->set_short_description(get_option('nb_description'));
-            $product->set_category_ids(array($category_term['term_id']));
-            $product->set_regular_price($price);
-            $product->set_manage_stock(true);
-            $product->set_stock_quantity($row['amountStock']);
-            $product->set_stock_status($row['amountStock'] > 0 ? 'instock' : 'outofstock');
-            $product->set_weight($row['weightAverage']);
-            $product->set_width($row['widthAverage']);
-            $product->set_length($row['lengthAverage']);
-            $product->set_height($row['highAverage']);
-            $product->save();
+        $response_data = array(
+            'updated' => $updated_count,
+            'created' => $created_count,
+            'sync_duration' => array(
+                'hours' => $hours,
+                'minutes' => $minutes,
+                'seconds' => number_format($seconds, 2)
+            )
+        );
 
-            if (is_plugin_active('featured-image-from-url/featured-image-from-url.php') || is_plugin_active('fifu-premium/fifu-premium.php')) {
-                fifu_dev_set_image($id, $row['mainImage']);
-            }
-        }
+        output_response($response_data);
+
+        // Restaurar límites originales
+        ini_set('max_execution_time', $original_max_execution_time);
+        ini_set('memory_limit', $original_memory_limit);
+    } catch (Exception $e) {
+        // Captura la excepción y muestra el mensaje de error
+        echo 'Error: ' . $e->getMessage();
+
+        // Opcional: puedes registrar el error en un archivo de log
+        error_log('Excepción capturada: ' . $e->getMessage() . ' en ' . $e->getFile() . ' en la línea ' . $e->getLine());
+
+        // Opcional: puedes proporcionar más información si es necesario
+        echo ' Archivo: ' . $e->getFile() . ' Línea: ' . $e->getLine();
     }
-    update_option('nb_last_update', date("Y-m-d H:i"));
-
-    $end_time = microtime(true); // Tiempo de finalización
-    $sync_duration = $end_time - $start_time;
-
-    $hours = floor($sync_duration / 3600);
-    $minutes = floor(($sync_duration % 3600) / 60);
-    $seconds = $sync_duration % 60;
-
-    $response_data = array(
-        'updated' => $updated_count,
-        'created' => $created_count,
-        'sync_duration' => array(
-            'hours' => $hours,
-            'minutes' => $minutes,
-            'seconds' => number_format($seconds, 2)
-        )
-    );
-
-    output_response($response_data);
-
-    // Restaurar límites originales
-    ini_set('max_execution_time', $original_max_execution_time);
-    ini_set('memory_limit', $original_memory_limit);
 }
 
 function nb_menu()
