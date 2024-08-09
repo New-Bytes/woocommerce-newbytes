@@ -238,6 +238,7 @@ function nb_callback($update_all = false)
     }
 }
 
+
 function nb_menu()
 {
     add_options_page('Conector NB', 'Conector NB', 'manage_options', 'nb', 'nb_options_page');
@@ -260,6 +261,41 @@ function nb_options_page()
 
     $plugin_url = plugin_dir_url(__FILE__);
     $icon_url = $plugin_url . 'assets/icon-128x128.png';
+
+    $latest_commit = get_latest_commit();
+    $current_version = latest_version_of_nb();
+    $show_new_version_button = ($latest_commit !== $current_version);
+
+    if ($show_new_version_button) {
+        echo '<form method="post" style="margin-top: 20px;">';
+        echo '<button type="button" id="update-connector-btn" style="
+            min-width: 130px;
+            height: 40px;
+            color: #fff;
+            padding: 5px 10px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+            border: none;
+            background-color: #FFC300;
+        ">Actualizar Conector NB</button>';
+        echo '</form>';
+    } else {
+        echo '<form method="post" style="margin-top: 20px;">';
+        echo '<button type="button" style="
+            min-width: 130px;
+            height: 40px;
+            color: #fff;
+            padding: 5px 10px;
+            font-weight: bold;
+            cursor: not-allowed;
+            border-radius: 5px;
+            border: none;
+            background-color: #e0e0e0;
+        " disabled>Actualizado</button>';
+        echo '</form>';
+    }
+
 
     echo '<div class="wrap" style="display: flex; justify-content: center; align-items: center; height: 100%;">';
     echo '<div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); text-align: center; max-width: 600px; width: 100%;">';
@@ -313,8 +349,6 @@ function nb_options_page()
     echo '</span>';
     echo '</button>';
     echo '</form>';
-    echo '</div>';
-    echo '</div>';
 
     if (isset($_POST['update_all'])) {
         echo '<p><details><summary><strong>Respuesta del conector NB</strong></summary>';
@@ -323,10 +357,61 @@ function nb_options_page()
         nb_show_last_update();
     }
 
+    echo '<div id="update-connector-modal" style="
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    ">
+        <div style="
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            position: relative;
+        ">
+            <h2>Actualizar Conector NB</h2>
+            <p>Hay una nueva versión disponible para descargar.</p>
+            <p><strong>Paso 1:</strong> Descarga el archivo <strong>.zip</strong> con la última versión de <strong> Conector NB</strong>.</p>
+            <p><strong>Paso 2:</strong> Borra la extensión actual de <strong>NewBytes</strong> en tu wordpress.</p>
+            <p><strong>Paso 3:</strong> Desde plugins instala la ultima versión del <strong>Conector NB</strong>.</p>
+            <a href="https://github.com/New-Bytes/woocommerce-newbytes/archive/refs/heads/main.zip" download style="
+                display: inline-block;
+                background-color: #FFC300;
+                color: #fff;
+                padding: 10px 20px;
+                border-radius: 5px;
+                text-decoration: none;
+                font-weight: bold;
+            ">Descargar .zip</a>
+            <button id="close-modal-btn" style="
+                display: block;
+                margin-top: 10px;
+                background-color: #e0e0e0;
+                color: #333;
+                border: none;
+                padding: 10px;
+                border-radius: 5px;
+                cursor: pointer;
+            ">Cerrar</button>
+        </div>
+    </div>';
+
     echo '<script>
-    document.getElementById("update-all-btn").addEventListener("click", function() {
-        document.getElementById("update-all-text").style.display = "none";
-        document.getElementById("update-all-spinner").style.display = "inline-block";
+    document.getElementById("update-connector-btn").addEventListener("click", function() {
+        document.getElementById("update-connector-modal").style.display = "flex";
+    });
+
+    document.getElementById("close-modal-btn").addEventListener("click", function() {
+        document.getElementById("update-connector-modal").style.display = "none";
     });
     </script>';
 }
@@ -373,6 +458,29 @@ function nb_show_last_update()
     echo '<script>
     document.getElementById("last_update").innerText = "' . $last_update . '";
     </script>';
+}
+
+function get_latest_commit()
+{
+    $response = wp_remote_get('https://api.github.com/repos/New-Bytes/woocommerce-newbytes/commits');
+
+    if (is_wp_error($response)) {
+        return 'Error fetching commit data';
+    }
+
+    $body = wp_remote_retrieve_body($response);
+    $commits = json_decode($body, true);
+
+    if (isset($commits[0]['sha'])) {
+        return $commits[0]['sha'];
+    } else {
+        return 'No commits found';
+    }
+}
+
+function latest_version_of_nb()
+{
+    return '8290e38b786a75dd27cd1f9cdea7e49c90983ed51';
 }
 
 
