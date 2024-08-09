@@ -4,11 +4,11 @@ Plugin Name: Conector NewBytes
 Description: Sincroniza los productos del catálogo de NewBytes con WooCommerce.
 Author: NewBytes
 Author URI: https://nb.com.ar
-Version: 0.0.1
+Version: 0.0.2
 */
 
 const API_URL_NB = 'https://api.nb.com.ar/v1';
-const VERSION = '0.0.1';
+const VERSION_NB = '0.0.2';
 
 function nb_plugin_action_links($links)
 {
@@ -262,39 +262,38 @@ function nb_options_page()
     $plugin_url = plugin_dir_url(__FILE__);
     $icon_url = $plugin_url . 'assets/icon-128x128.png';
 
-    $latest_commit = get_latest_commit();
-    $current_version = latest_version_of_nb();
-    $show_new_version_button = ($latest_commit !== $current_version);
+    $latest_commit = get_latest_version_nb();
+    $show_new_version_button = ($latest_commit !== VERSION_NB);
 
-    // if ($show_new_version_button) {
-    //     echo '<form method="post" style="margin-top: 20px;">';
-    //     echo '<button type="button" id="update-connector-btn" style="
-    //         min-width: 130px;
-    //         height: 40px;
-    //         color: #fff;
-    //         padding: 5px 10px;
-    //         font-weight: bold;
-    //         cursor: pointer;
-    //         border-radius: 5px;
-    //         border: none;
-    //         background-color: #FFC300;
-    //     ">Actualizar Conector NB</button>';
-    //     echo '</form>';
-    // } else {
-    //     echo '<form method="post" style="margin-top: 20px;">';
-    //     echo '<button type="button" style="
-    //         min-width: 130px;
-    //         height: 40px;
-    //         color: #fff;
-    //         padding: 5px 10px;
-    //         font-weight: bold;
-    //         cursor: not-allowed;
-    //         border-radius: 5px;
-    //         border: none;
-    //         background-color: #e0e0e0;
-    //     " disabled>Actualizado</button>';
-    //     echo '</form>';
-    // }
+    if ($show_new_version_button) {
+        echo '<form method="post" style="margin-top: 20px;">';
+        echo '<button type="button" id="update-connector-btn" style="
+            min-width: 130px;
+            height: 40px;
+            color: #fff;
+            padding: 5px 10px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+            border: none;
+            background-color: #FFC300;
+        ">Actualizar Conector NB</button>';
+        echo '</form>';
+    } else {
+        echo '<form method="post" style="margin-top: 20px;">';
+        echo '<button type="button" style="
+            min-width: 130px;
+            height: 40px;
+            color: #fff;
+            padding: 5px 10px;
+            font-weight: bold;
+            cursor: not-allowed;
+            border-radius: 5px;
+            border: none;
+            background-color: #e0e0e0;
+        " disabled>Actualizado: ' . VERSION_NB . '</button>';
+        echo '</form>';
+    }
 
 
     echo '<div class="wrap" style="display: flex; justify-content: center; align-items: center; height: 100%;">';
@@ -460,27 +459,28 @@ function nb_show_last_update()
     </script>';
 }
 
-function get_latest_commit()
+function get_latest_version_nb()
 {
-    $response = wp_remote_get('https://api.github.com/repos/New-Bytes/woocommerce-newbytes/commits');
+    // URL del archivo PHP que contiene la versión
+    $file_url = 'https://raw.githubusercontent.com/New-Bytes/woocommerce-newbytes/main/woocommerce-newbytes.php';
+
+    // Obtener el contenido del archivo
+    $response = wp_remote_get($file_url);
 
     if (is_wp_error($response)) {
-        return 'Error fetching commit data';
+        return 'Error fetching version data';
     }
 
     $body = wp_remote_retrieve_body($response);
-    $commits = json_decode($body, true);
 
-    if (isset($commits[0]['sha'])) {
-        return $commits[0]['sha'];
+    // Buscar la línea que contiene la versión
+    preg_match('/Version:\s*(\S+)/', $body, $matches);
+
+    if (isset($matches[1])) {
+        return $matches[1];
     } else {
-        return 'No commits found';
+        return 'Version not found';
     }
-}
-
-function latest_version_of_nb()
-{
-    return '8290e38b786a75dd27cd1f9cdea7e49c90983ed5';
 }
 
 
