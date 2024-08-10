@@ -4,11 +4,11 @@ Plugin Name: Conector NewBytes
 Description: Sincroniza los productos del catálogo de NewBytes con WooCommerce.
 Author: NewBytes
 Author URI: https://nb.com.ar
-Version: 0.0.2
+Version: 0.0.3
 */
 
 const API_URL_NB = 'https://api.nb.com.ar/v1';
-const VERSION_NB = '0.0.2';
+const VERSION_NB = '0.0.3';
 
 function nb_plugin_action_links($links)
 {
@@ -429,11 +429,11 @@ function nb_callback_full()
 
 function nb_cron_interval($schedules)
 {
-    $schedules['every_hour'] = array(
-        'interval'  => 3600,
-        'display'   => 'Every hour'
-    );
-    return $schedules;
+    // $schedules['every_hour'] = array(
+    //     'interval'  => 3600,
+    //     'display'   => 'Every hour'
+    // );
+    // return $schedules;
 }
 
 function nb_activation()
@@ -487,7 +487,7 @@ function get_latest_version_nb()
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'nb_plugin_action_links');
 add_action('admin_menu', 'nb_menu');
 add_action('admin_init', 'nb_register_settings');
-add_action('nb_cron_hook', 'nb_callback');
+// add_action('nb_cron_hook', 'nb_callback');
 add_filter('cron_schedules', 'nb_cron_interval');
 register_activation_hook(__FILE__, 'nb_activation');
 register_deactivation_hook(__FILE__, 'nb_deactivation');
