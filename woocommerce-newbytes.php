@@ -4,11 +4,11 @@ Plugin Name: Conector NewBytes
 Description: Sincroniza los productos del catálogo de NewBytes con WooCommerce.
 Author: NewBytes
 Author URI: https://nb.com.ar
-Version: 0.0.1
+Version: 0.0.3
 */
 
-const API_URL = 'https://api.nb.com.ar/v1';
-const VERSION = '0.0.1';
+const API_URL_NB = 'https://api.nb.com.ar/v1';
+const VERSION_NB = '0.0.3';
 
 function nb_plugin_action_links($links)
 {
@@ -26,24 +26,21 @@ function nb_get_token()
         'body' => json_encode(array(
             'user' => get_option('nb_user'),
             'password' => get_option('nb_password'),
-            'mode' => 'wp-extension'
+            'mode' => 'wp-extension',
+            'domain' =>  home_url()
         )),
         'timeout' => '5',
         'blocking' => true,
     );
 
-    $response = wp_remote_post(API_URL . '/auth/login', $args);
-
+    $response = wp_remote_post(API_URL_NB . '/auth/login', $args);
 
     if (is_wp_error($response)) {
-        return var_dump($response);exit;
         nb_show_error_message('Error en la solicitud de token: ' . $response->get_error_message());
         return null;
     }
 
     $body = wp_remote_retrieve_body($response);
-
-    return var_dump($response);exit;
 
     $json = json_decode($body, true);
 
@@ -57,104 +54,194 @@ function nb_get_token()
         return $json['token'];
     }
 
-    nb_show_error_message('Token no encontrado en la respuesta: ' . $json);
+    nb_show_error_message('Token no encontrado en la respuesta: ' . json_encode($json));
     return null;
+}
+function output_response($data)
+{
+    echo json_encode($data);
 }
 
 function nb_callback($update_all = false)
 {
-    $start_time = microtime(true); // Tiempo de inicio
+    try {
+        // Guardar límites originales
+        $original_max_execution_time = ini_get('max_execution_time');
+        $original_memory_limit = ini_get('memory_limit');
 
-    $token = get_option('nb_token') ? get_option('nb_token') : nb_get_token();
-    if (!$token) {
-        nb_show_error_message('No fue posible obtener el token.');
-        return;
-    }
+        // Establecer nuevos límites
+        ini_set('max_execution_time', '1800'); // 30 minutos
+        ini_set('memory_limit', '2048M'); // 2 GB
 
-    $url  = API_URL . '/';
-    $args = array(
-        'headers'  => array(
-            'Authorization' => 'Bearer ' . $token,
-            'Content-Type'  => 'application/json'
-        ),
-        'timeout'  => '30',
-        'blocking' => true,
-    );
+        $start_time = microtime(true); // Tiempo de inicio
 
-    $response = wp_remote_get($url, $args);
+        $token = get_option('nb_token') ? get_option('nb_token') : nb_get_token();
+        if (!$token) {
+            output_response(array('error' => 'No fue posible obtener el token.'));
+            return;
+        }
 
-    if (is_wp_error($response)) {
-        nb_show_error_message('Error en la solicitud de productos: ' . $response->get_error_message());
-        return;
-    }
+        $url = API_URL_NB . '/';
+        $args = array(
+            'headers'  => array(
+                'Authorization' => 'Bearer ' . $token,
+                'Content-Type'  => 'application/json'
+            ),
+            'timeout'  => 30,
+            'blocking' => true,
+        );
 
-    $body = wp_remote_retrieve_body($response);
-    $json = json_decode($body, true);
+        $response = wp_remote_get($url, $args);
 
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        nb_show_error_message('Error al decodificar JSON de la solicitud de productos: ' . json_last_error_msg());
-        return;
-    }
+        if (is_wp_error($response)) {
+            output_response(array('error' => 'Error en la solicitud de productos: ' . $response->get_error_message()));
+            return;
+        }
 
-    foreach ($json as $row) {
-        $id = null;
+        $body = wp_remote_retrieve_body($response);
+        $json = json_decode($body, true);
 
-        $category_term = term_exists($row['category'], 'product_cat');
-        if ($category_term == null && !is_numeric($row['category'])) {
-            if ($row['category'] != '') {
-                $category_term = wp_insert_term($row['category'], 'product_cat');
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            output_response(array('error' => 'Error al decodificar JSON de la solicitud de productos: ' . json_last_error_msg()));
+            return;
+        }
+
+        // Obtener todos los SKUs existentes de WooCommerce con el prefijo especificado
+        $prefix = get_option('nb_prefix');
+        $args = array(
+            'limit'    => -1,
+            'return'   => 'ids',
+            'paginate' => false,
+            'meta_query' => array(
+                array(
+                    'key'     => '_sku',
+                    'value'   => '^' . $prefix,
+                    'compare' => 'REGEXP'
+                )
+            )
+        );
+
+        $existing_products = wc_get_products($args);
+        $existing_skus = array();
+
+        foreach ($existing_products as $product_id) {
+            $product = wc_get_product($product_id);
+            $existing_skus[$product->get_sku()] = $product_id;
+        }
+
+        // Procesamiento de productos
+        $updated_count = 0;
+        $created_count = 0;
+        $categories_cache = array();
+
+        foreach ($json as $row) {
+            $id = null;
+
+            // Manejo de categoría
+            if (!isset($categories_cache[$row['category']])) {
+                $category_term = term_exists($row['category'], 'product_cat');
+                if (!$category_term && !is_numeric($row['category'])) {
+                    if ($row['category'] != '') {
+                        $category_term = wp_insert_term($row['category'], 'product_cat');
+                    }
+                }
+                $categories_cache[$row['category']] = $category_term ? $category_term['term_id'] : null;
+            } else {
+                $category_term = $categories_cache[$row['category']];
+            }
+
+            $sku = $prefix . $row['sku'];
+
+            // Validar si el SKU ya existe
+            if (isset($existing_skus[$sku])) {
+                $id = $existing_skus[$sku];
+                $updated_count++;
+            } elseif ($row['amountStock'] > 0) {
+
+                # si no tiene sku, no se crea el producto
+                if ($sku == $prefix) {
+                    continue;
+                }
+
+                $product_data = array(
+                    'post_title'   => $row['title'],
+                    'post_type'    => 'product',
+                    'post_status'  => 'publish',
+                );
+                $id = wp_insert_post($product_data);
+                $created_count++;
+            }
+
+            if ($id) {
+                try {
+                    $price = $row['price']['finalPrice'] * $row['cotizacion'];
+
+                    if (isset($row['price']['finalPriceWithUtility']) && $row['price']['finalPriceWithUtility'] > 0) {
+                        $price = $row['price']['finalPriceWithUtility'] * $row['cotizacion'];
+                    }
+
+                    $product = wc_get_product($id);
+                    $product->set_sku($sku);
+                    $product->set_short_description(get_option('nb_description'));
+                    if ($category_term) {
+                        $product->set_category_ids(array($category_term));
+                    }
+                    $product->set_regular_price($price);
+                    $product->set_manage_stock(true);
+                    $product->set_stock_quantity($row['amountStock']);
+                    $product->set_stock_status($row['amountStock'] > 0 ? 'instock' : 'outofstock');
+                    $product->set_weight($row['weightAverage']);
+                    $product->set_width($row['widthAverage']);
+                    $product->set_length($row['lengthAverage']);
+                    $product->set_height($row['highAverage']);
+                    $product->save();
+
+                    // Optimización de imagen destacada
+                    if (!empty($row['mainImage']) && (is_plugin_active('featured-image-from-url/featured-image-from-url.php') || is_plugin_active('fifu-premium/fifu-premium.php'))) {
+                        fifu_dev_set_image($id, $row['mainImage']);
+                    }
+                } catch (Exception $e) {
+                    // Manejar errores relacionados con SKU duplicados o inválidos
+                    error_log('Error al procesar el producto con SKU ' . $sku . ': ' . $e->getMessage());
+                    continue; // Saltar este producto y continuar con los siguientes
+                }
             }
         }
 
-        $id = wc_get_product_id_by_sku(get_option('nb_prefix') . $row['sku']);
-        if ($id) {
-            echo '<li>Actualizado: ' . esc_html($row['title']) . "</li>";
-        } elseif ($row['amountStock'] > 0) {
-            $product_data = array(
-                'post_title'   => $row['title'],
-                'post_type'    => 'product',
-                'post_status'  => 'publish',
-            );
-            $id = wp_insert_post($product_data);
-            echo '<li>Creado: ' . esc_html($row['title']) . "</li>";
-        }
+        update_option('nb_last_update', date("Y-m-d H:i"));
 
-        if ($id) {
-            $price = $row['price']['finalPrice'] * $row['cotizacion'];
+        $end_time = microtime(true); // Tiempo de finalización
+        $sync_duration = $end_time - $start_time;
 
-            if (isset($row['price']['finalPriceWithUtility']) && $row['price']['finalPriceWithUtility'] > 0) {
-                $price = $row['price']['finalPriceWithUtility'] * $row['cotizacion'];
-            }
+        $hours = floor($sync_duration / 3600);
+        $minutes = floor(($sync_duration % 3600) / 60);
+        $seconds = $sync_duration % 60;
 
-            $product = wc_get_product($id);
-            $product->set_sku(get_option('nb_prefix') . $row['sku']);
-            $product->set_short_description(get_option('nb_description'));
-            $product->set_category_ids(array($category_term['term_id']));
-            $product->set_regular_price($price);
-            $product->set_manage_stock(true);
-            $product->set_stock_quantity($row['amountStock']);
-            $product->set_stock_status($row['amountStock'] > 0 ? 'instock' : 'outofstock');
-            $product->set_weight($row['weightAverage']);
-            $product->set_width($row['widthAverage']);
-            $product->set_length($row['lengthAverage']);
-            $product->set_height($row['highAverage']);
-            $product->save();
+        $response_data = array(
+            'updated' => $updated_count,
+            'created' => $created_count,
+            'sync_duration' => array(
+                'hours' => $hours,
+                'minutes' => $minutes,
+                'seconds' => number_format($seconds, 2)
+            )
+        );
 
-            if (is_plugin_active('featured-image-from-url/featured-image-from-url.php') || is_plugin_active('fifu-premium/fifu-premium.php')) {
-                fifu_dev_set_image($id, $row['mainImage']);
-            }
-        }
+        output_response($response_data);
+
+        // Restaurar límites originales
+        ini_set('max_execution_time', $original_max_execution_time);
+        ini_set('memory_limit', $original_memory_limit);
+    } catch (Exception $e) {
+        // Captura la excepción y muestra el mensaje de error
+        echo 'Error: ' . $e->getMessage();
+
+        // Opcional: puedes registrar el error en un archivo de log
+        error_log('Excepción capturada: ' . $e->getMessage() . ' en ' . $e->getFile() . ' en la línea ' . $e->getLine());
+
+        // Opcional: puedes proporcionar más información si es necesario
+        echo ' Archivo: ' . $e->getFile() . ' Línea: ' . $e->getLine();
     }
-    update_option('nb_last_update', date("Y-m-d H:i"));
-
-    $end_time = microtime(true); // Tiempo de finalización
-    $sync_duration = $end_time - $start_time;
-
-    $hours = floor($sync_duration / 3600);
-    $minutes = floor(($sync_duration % 3600) / 60);
-    $seconds = $sync_duration % 60;
-
-    echo 'Sincronización completada en ' . $hours . ' horas, ' . $minutes . ' minutos y ' . number_format($seconds, 2) . ' segundos.';
 }
 
 
@@ -180,6 +267,40 @@ function nb_options_page()
 
     $plugin_url = plugin_dir_url(__FILE__);
     $icon_url = $plugin_url . 'assets/icon-128x128.png';
+
+    $latest_commit = get_latest_version_nb();
+    $show_new_version_button = ($latest_commit !== VERSION_NB);
+
+    if ($show_new_version_button) {
+        echo '<form method="post" style="margin-top: 20px;">';
+        echo '<button type="button" id="update-connector-btn" style="
+            min-width: 130px;
+            height: 40px;
+            color: #fff;
+            padding: 5px 10px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+            border: none;
+            background-color: #FFC300;
+        ">Actualizar Conector NB</button>';
+        echo '</form>';
+    } else {
+        echo '<form method="post" style="margin-top: 20px;">';
+        echo '<button type="button" style="
+            min-width: 130px;
+            height: 40px;
+            color: #fff;
+            padding: 5px 10px;
+            font-weight: bold;
+            cursor: not-allowed;
+            border-radius: 5px;
+            border: none;
+            background-color: #e0e0e0;
+        " disabled>Actualizado: ' . VERSION_NB . '</button>';
+        echo '</form>';
+    }
+
 
     echo '<div class="wrap" style="display: flex; justify-content: center; align-items: center; height: 100%;">';
     echo '<div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); text-align: center; max-width: 600px; width: 100%;">';
@@ -233,8 +354,6 @@ function nb_options_page()
     echo '</span>';
     echo '</button>';
     echo '</form>';
-    echo '</div>';
-    echo '</div>';
 
     if (isset($_POST['update_all'])) {
         echo '<p><details><summary><strong>Respuesta del conector NB</strong></summary>';
@@ -243,13 +362,245 @@ function nb_options_page()
         nb_show_last_update();
     }
 
-    echo '<script>
-    document.getElementById("update-all-btn").addEventListener("click", function() {
-        document.getElementById("update-all-text").style.display = "none";
-        document.getElementById("update-all-spinner").style.display = "inline-block";
-    });
-    </script>';
+    echo '<div id="update-connector-modal" style="
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    ">
+        <div style="
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            position: relative;
+        ">
+            <h2>Actualizar Conector NB</h2>
+            <p>Hay una nueva versión disponible para descargar.</p>
+            <p><strong>Paso 1:</strong> Descarga el archivo <strong>.zip</strong> con la última versión de <strong> Conector NB</strong>.</p>
+            <p><strong>Paso 2:</strong> Borra la extensión actual de <strong>NewBytes</strong> en tu wordpress.</p>
+            <p><strong>Paso 3:</strong> Desde plugins instala la ultima versión del <strong>Conector NB</strong>.</p>
+            <a href="https://github.com/New-Bytes/woocommerce-newbytes/archive/refs/heads/main.zip" download style="
+                display: inline-block;
+                background-color: #FFC300;
+                color: #fff;
+                padding: 10px 20px;
+                border-radius: 5px;
+                text-decoration: none;
+                font-weight: bold;
+            ">Descargar .zip</a>
+            <button id="close-modal-btn" style="
+                display: block;
+                margin-top: 10px;
+                background-color: #e0e0e0;
+                color: #333;
+                border: none;
+                padding: 10px;
+                border-radius: 5px;
+                cursor: pointer;
+            ">Cerrar</button>
+        </div>
+    </div>';
+
+    btn_delete_products();
+
+    modal_confirm_delete_products();
+
+    js_handler_modals();
 }
+
+function nb_delete_products()
+{
+    global $wpdb;
+
+    try {
+        $original_max_execution_time = ini_get('max_execution_time');
+        $original_memory_limit       = ini_get('memory_limit');
+
+        ini_set('max_execution_time', '1800'); // 30 minutos
+        ini_set('memory_limit', '2048M'); // 2 GB
+
+        $start_time = microtime(true); // Tiempo de inicio del proceso
+
+        $prefix = get_option('nb_prefix');
+        if (!$prefix) {
+            wp_send_json_error('No se encontró el prefijo del SKU.');
+            return;
+        }
+
+        # Eliminar productos con el prefijo especificado
+        $deleted_count = $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM {$wpdb->posts} 
+                 WHERE post_type = 'product' 
+                 AND post_status = 'publish' 
+                 AND ID IN (
+                     SELECT post_id FROM {$wpdb->postmeta} 
+                     WHERE meta_key = '_sku' 
+                     AND meta_value REGEXP %s
+                 )",
+                '^' . $prefix
+            )
+        );
+
+        update_option('nb_last_update', date("Y-m-d H:i"));
+
+        $end_time      = microtime(true); // Tiempo de finalización del proceso
+        $sync_duration = $end_time - $start_time;
+
+        $hours   = floor($sync_duration / 3600);
+        $minutes = floor(($sync_duration % 3600) / 60);
+        $seconds = $sync_duration % 60;
+
+        $response_data = array(
+            'deleted'       => $deleted_count,
+            'sync_duration' => array(
+                'hours'   => $hours,
+                'minutes' => $minutes,
+                'seconds' => number_format($seconds, 2)
+            )
+        );
+
+        wp_send_json_success($response_data);
+
+        ini_set('max_execution_time', $original_max_execution_time);
+        ini_set('memory_limit', $original_memory_limit);
+    } catch (Exception $e) {
+        wp_send_json_error('Error: ' . $e->getMessage());
+    }
+}
+
+add_action('wp_ajax_nb_delete_products', 'nb_delete_products');
+add_action('admin_post_nb_delete_products', 'nb_delete_products');
+
+function modal_confirm_delete_products()
+{
+    echo '<div id="delete-confirm-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 9999;">
+        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 400px; width: 100%;">
+            <h2>Advertencia</h2>
+            <p>Esta acción eliminará todos los productos de NewBytes.</p>
+            <form id="confirm-delete-form" style="display: inline;">
+                <input type="hidden" name="action" value="nb_delete_products" />
+                <input type="hidden" name="delete_all" value="1" />';
+    wp_nonce_field('nb_delete_all', 'nb_delete_all_nonce');
+    echo '  <button type="button" id="confirm-delete-btn" class="button" style="
+                    background-color: #f55a39;
+                    min-width: 130px;
+                    height: 40px;
+                    color: #fff;
+                    border: none;
+                    padding: 5px 10px;
+                    font-weight: bold;
+                    border-radius: 5px;
+                    cursor: pointer;">
+                        Eliminar
+                    </button>
+                    <button type="button" id="cancel-delete" class="button"
+                    style="
+                    min-width: 130px;
+                    height: 40px;
+                    background-color: #e0e0e0;
+                    color: #333;
+                    border: none;
+                    padding: 5px 10px;
+                    font-weight: bold;
+                    border-radius: 5px;
+                    cursor: pointer;">
+                        Cancelar
+                    </button>
+                </form>
+            </div>
+        </div>';
+}
+
+
+function btn_delete_products()
+{
+    echo '<button type="button" class="button button-secondary" id="delete-all-btn" style="margin-top: 20px; border: none; background-color: #f55a39; color: #fff;">
+        Eliminar Productos
+    </button>';
+}
+
+function js_handler_modals()
+{
+    echo '<script>
+            document.addEventListener("DOMContentLoaded", function() {
+                // Mostrar el modal de actualización cuando se haga clic en el botón "Actualizar Conector NB"
+                var updateConnectorBtn = document.getElementById("update-connector-btn");
+                var updateConnectorModal = document.getElementById("update-connector-modal");
+                var closeModalBtn = document.getElementById("close-modal-btn");
+
+                if (updateConnectorBtn && updateConnectorModal && closeModalBtn) {
+                    updateConnectorBtn.addEventListener("click", function() {
+                        updateConnectorModal.style.display = "flex";
+                    });
+
+                    closeModalBtn.addEventListener("click", function() {
+                        updateConnectorModal.style.display = "none";
+                    });
+
+                    // Ocultar el modal de actualización cuando se haga clic fuera del modal
+                    updateConnectorModal.addEventListener("click", function(event) {
+                        if (event.target === this) {
+                            updateConnectorModal.style.display = "none";
+                        }
+                    });
+                }
+
+                // Mostrar el modal de confirmación cuando se haga clic en el botón "Eliminar Productos"
+                var deleteAllBtn = document.getElementById("delete-all-btn");
+                var deleteConfirmModal = document.getElementById("delete-confirm-modal");
+                var cancelDeleteBtn = document.getElementById("cancel-delete");
+                var confirmDeleteBtn = document.getElementById("confirm-delete-btn");
+                var confirmDeleteForm = document.getElementById("confirm-delete-form");
+
+                if (deleteAllBtn && deleteConfirmModal && cancelDeleteBtn && confirmDeleteBtn) {
+                    deleteAllBtn.addEventListener("click", function() {
+                        deleteConfirmModal.style.display = "flex";
+                    });
+
+                    cancelDeleteBtn.addEventListener("click", function() {
+                        deleteConfirmModal.style.display = "none";
+                    });
+
+                    // Ocultar el modal de confirmación cuando se haga clic fuera del modal
+                    deleteConfirmModal.addEventListener("click", function(event) {
+                        if (event.target === this) {
+                            deleteConfirmModal.style.display = "none";
+                        }
+                    });
+
+                    confirmDeleteBtn.addEventListener("click", function() {
+                        var formData = new FormData(confirmDeleteForm);
+                        fetch("' . esc_url(admin_url('admin-ajax.php')) . '", {
+                            method: "POST",
+                            body: formData,
+                            credentials: "same-origin"
+                        }).then(response => response.json()).then(data => {
+                            if (data.success) {
+                                alert("Productos eliminados exitosamente.");
+                                deleteConfirmModal.style.display = "none";
+                            } else {
+                                alert("Error: " + data.data);
+                            }
+                        }).catch(error => {
+                            console.error("Error:", error);
+                        });
+                    });
+                }
+            });
+        </script>';
+}
+
+
 
 // Asegúrate de incluir FontAwesome en tu tema
 function enqueue_fontawesome()
@@ -266,7 +617,7 @@ function nb_callback_full()
 function nb_cron_interval($schedules)
 {
     $schedules['every_hour'] = array(
-        'interval'  => 3600,
+        'interval'  => 300,
         'display'   => 'Every hour'
     );
     return $schedules;
@@ -295,6 +646,30 @@ function nb_show_last_update()
     </script>';
 }
 
+function get_latest_version_nb()
+{
+    // URL del archivo PHP que contiene la versión
+    $file_url = 'https://raw.githubusercontent.com/New-Bytes/woocommerce-newbytes/main/woocommerce-newbytes.php';
+
+    // Obtener el contenido del archivo
+    $response = wp_remote_get($file_url);
+
+    if (is_wp_error($response)) {
+        return 'Error fetching version data';
+    }
+
+    $body = wp_remote_retrieve_body($response);
+
+    // Buscar la línea que contiene la versión
+    preg_match('/Version:\s*(\S+)/', $body, $matches);
+
+    if (isset($matches[1])) {
+        return $matches[1];
+    } else {
+        return 'Version not found';
+    }
+}
+
 
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'nb_plugin_action_links');
 add_action('admin_menu', 'nb_menu');
@@ -303,3 +678,24 @@ add_action('nb_cron_hook', 'nb_callback');
 add_filter('cron_schedules', 'nb_cron_interval');
 register_activation_hook(__FILE__, 'nb_activation');
 register_deactivation_hook(__FILE__, 'nb_deactivation');
+
+
+// Registra el endpoint REST personalizado
+add_action('rest_api_init', function () {
+    register_rest_route('nb/v1', '/sync', array(
+        'methods' => 'POST',
+        'callback' => 'nb_sync_catalog',
+        'permission_callback' => '__return_true',
+    ));
+});
+
+
+// Función de callback para el endpoint de sincronización
+function nb_sync_catalog(WP_REST_Request $request)
+{
+    // Llamar a la función de sincronización del catálogo
+    nb_callback();
+
+    // Devolver una respuesta exitosa
+    return new WP_REST_Response('Sincronización completada', 200);
+}
