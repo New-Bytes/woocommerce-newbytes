@@ -342,12 +342,20 @@ function nb_options_page()
     echo '<th scope="row">Intervalo de sincronización automática</th>';
     echo '<td><select name="nb_sync_interval" id="nb_sync_interval">';
     $intervals = array(
-        '900'  => 'Cada 15 minutos',
-        '1800' => 'Cada 30 minutos',
-        '3600' => 'Cada 1 hora',
+        '3600'  => 'Cada 1 hora',
+        '7200'  => 'Cada 2 horas',
+        '10800' => 'Cada 3 horas',
+        '14400' => 'Cada 4 horas',
+        '18000' => 'Cada 5 horas',
         '21600' => 'Cada 6 horas',
+        '25200' => 'Cada 7 horas',
+        '28800' => 'Cada 8 horas',
+        '32400' => 'Cada 9 horas',
+        '36000' => 'Cada 10 horas',
+        '39600' => 'Cada 11 horas',
         '43200' => 'Cada 12 horas'
     );
+
     $current_interval = get_option('nb_sync_interval', 3600); // Valor por defecto 1 hora
     foreach ($intervals as $value => $label) {
         echo '<option value="' . esc_attr($value) . '"' . selected($current_interval, $value, false) . '>' . esc_html($label) . '</option>';
@@ -432,21 +440,49 @@ function nb_options_page()
 
 function nb_cron_interval($schedules)
 {
-    $schedules['every_15_minutes'] = array(
-        'interval'  => 900, // 15 minutos en segundos
-        'display'   => 'Cada 15 minutos'
-    );
-    $schedules['every_30_minutes'] = array(
-        'interval'  => 1800, // 30 minutos en segundos
-        'display'   => 'Cada 30 minutos'
-    );
     $schedules['every_hour'] = array(
         'interval'  => 3600, // 1 hora en segundos
         'display'   => 'Cada 1 hora'
     );
+    $schedules['every_2_hours'] = array(
+        'interval'  => 7200, // 2 horas en segundos
+        'display'   => 'Cada 2 horas'
+    );
+    $schedules['every_3_hours'] = array(
+        'interval'  => 10800, // 3 horas en segundos
+        'display'   => 'Cada 3 horas'
+    );
+    $schedules['every_4_hours'] = array(
+        'interval'  => 14400, // 4 horas en segundos
+        'display'   => 'Cada 4 horas'
+    );
+    $schedules['every_5_hours'] = array(
+        'interval'  => 18000, // 5 horas en segundos
+        'display'   => 'Cada 5 horas'
+    );
     $schedules['every_6_hours'] = array(
         'interval'  => 21600, // 6 horas en segundos
         'display'   => 'Cada 6 horas'
+    );
+    $schedules['every_7_hours'] = array(
+        'interval'  => 25200, // 7 horas en segundos
+        'display'   => 'Cada 7 horas'
+    );
+    $schedules['every_8_hours'] = array(
+        'interval'  => 28800, // 8 horas en segundos
+        'display'   => 'Cada 8 horas'
+    );
+    $schedules['every_9_hours'] = array(
+        'interval'  => 32400, // 9 horas en segundos
+        'display'   => 'Cada 9 horas'
+    );
+    $schedules['every_10_hours'] = array(
+        'interval'  => 36000, // 10 horas en segundos
+        'display'   => 'Cada 10 horas'
+    );
+    $schedules['every_11_hours'] = array(
+        'interval'  => 39600, // 11 horas en segundos
+        'display'   => 'Cada 11 horas'
     );
     $schedules['every_12_hours'] = array(
         'interval'  => 43200, // 12 horas en segundos
@@ -455,7 +491,31 @@ function nb_cron_interval($schedules)
     return $schedules;
 }
 
-add_filter('cron_schedules', 'nb_cron_interval');
+function nb_schedule_sync()
+{
+    $current_interval = get_option('nb_sync_interval', 3600); // Valor por defecto: 1 hora
+
+    if (wp_next_scheduled('nb_cron_sync')) {
+        wp_clear_scheduled_hook('nb_cron_sync');
+    }
+
+    if (!wp_next_scheduled('nb_cron_sync')) {
+        wp_schedule_event(time(), array_search($current_interval, array(
+            '3600'  => 'every_hour',
+            '7200'  => 'every_2_hours',
+            '10800' => 'every_3_hours',
+            '14400' => 'every_4_hours',
+            '18000' => 'every_5_hours',
+            '21600' => 'every_6_hours',
+            '25200' => 'every_7_hours',
+            '28800' => 'every_8_hours',
+            '32400' => 'every_9_hours',
+            '36000' => 'every_10_hours',
+            '39600' => 'every_11_hours',
+            '43200' => 'every_12_hours'
+        )), 'nb_cron_sync');
+    }
+}
 
 
 function nb_delete_products()
@@ -661,6 +721,7 @@ function nb_activation()
 function nb_deactivation()
 {
     wp_clear_scheduled_hook('nb_cron_hook');
+    wp_clear_scheduled_hook('nb_cron_sync');
 }
 
 function nb_show_error_message($error)
