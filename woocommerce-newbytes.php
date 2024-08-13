@@ -617,7 +617,7 @@ function nb_callback_full()
 function nb_cron_interval($schedules)
 {
     $schedules['every_hour'] = array(
-        'interval'  => 300,
+        'interval'  => 3600, // 1 hora en segundos
         'display'   => 'Every hour'
     );
     return $schedules;
