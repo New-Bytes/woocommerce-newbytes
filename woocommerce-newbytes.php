@@ -4,11 +4,11 @@ Plugin Name: Conector NewBytes
 Description: Sincroniza los productos del catálogo de NewBytes con WooCommerce.
 Author: NewBytes
 Author URI: https://nb.com.ar
-Version: 0.0.4
+Version: 0.0.5
 */
 
 const API_URL_NB = 'https://api.nb.com.ar/v1';
-const VERSION_NB = '0.0.4';
+const VERSION_NB = '0.0.5';
 
 function nb_plugin_action_links($links)
 {
@@ -244,7 +244,6 @@ function nb_callback($update_all = false)
     }
 }
 
-
 function nb_menu()
 {
     add_options_page('Conector NB', 'Conector NB', 'manage_options', 'nb', 'nb_options_page');
@@ -301,7 +300,6 @@ function nb_options_page()
         echo '</form>';
     }
 
-
     echo '<div class="wrap" style="display: flex; justify-content: center; align-items: center; height: 100%;">';
     echo '<div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); text-align: center; max-width: 600px; width: 100%;">';
     echo '<img src="' . esc_url($icon_url) . '" alt="Logo" style="width: 128px; height: 128px; margin-bottom: 20px;">';
@@ -339,6 +337,23 @@ function nb_options_page()
     echo '<tr>';
     echo '<th scope="row">Última actualización</th>';
     echo '<td id=last_update>' . esc_attr(get_option('nb_last_update') != '' ? date('d/m/Y H:i', strtotime(get_option('nb_last_update') . '-3 hours')) : '--') . '</td>';
+    echo '</tr>';
+    echo '<tr>';
+    echo '<th scope="row">Intervalo de sincronización automática</th>';
+    echo '<td><select name="nb_sync_interval" id="nb_sync_interval">';
+    $intervals = array(
+        '900'  => 'Cada 15 minutos',
+        '1800' => 'Cada 30 minutos',
+        '3600' => 'Cada 1 hora',
+        '21600' => 'Cada 6 horas',
+        '43200' => 'Cada 12 horas'
+    );
+    $current_interval = get_option('nb_sync_interval', 3600); // Valor por defecto 1 hora
+    foreach ($intervals as $value => $label) {
+        echo '<option value="' . esc_attr($value) . '"' . selected($current_interval, $value, false) . '>' . esc_html($label) . '</option>';
+    }
+    echo '</select>';
+    echo '<p class="description">Selecciona el intervalo en el que deseas que se sincronice automáticamente.</p></td>';
     echo '</tr>';
     echo '</tbody>';
     echo '</table>';
@@ -405,17 +420,43 @@ function nb_options_page()
                 border: none;
                 padding: 10px;
                 border-radius: 5px;
-                cursor: pointer;
-            ">Cerrar</button>
-        </div>
-    </div>';
+                cursor: pointer">
+                Cerrar</button>
+            </div>
+        </div>';
 
     btn_delete_products();
-
     modal_confirm_delete_products();
-
     js_handler_modals();
 }
+
+function nb_cron_interval($schedules)
+{
+    $schedules['every_15_minutes'] = array(
+        'interval'  => 900, // 15 minutos en segundos
+        'display'   => 'Cada 15 minutos'
+    );
+    $schedules['every_30_minutes'] = array(
+        'interval'  => 1800, // 30 minutos en segundos
+        'display'   => 'Cada 30 minutos'
+    );
+    $schedules['every_hour'] = array(
+        'interval'  => 3600, // 1 hora en segundos
+        'display'   => 'Cada 1 hora'
+    );
+    $schedules['every_6_hours'] = array(
+        'interval'  => 21600, // 6 horas en segundos
+        'display'   => 'Cada 6 horas'
+    );
+    $schedules['every_12_hours'] = array(
+        'interval'  => 43200, // 12 horas en segundos
+        'display'   => 'Cada 12 horas'
+    );
+    return $schedules;
+}
+
+add_filter('cron_schedules', 'nb_cron_interval');
+
 
 function nb_delete_products()
 {
@@ -532,75 +573,73 @@ function btn_delete_products()
 function js_handler_modals()
 {
     echo '<script>
-            document.addEventListener("DOMContentLoaded", function() {
-                // Mostrar el modal de actualización cuando se haga clic en el botón "Actualizar Conector NB"
-                var updateConnectorBtn = document.getElementById("update-connector-btn");
-                var updateConnectorModal = document.getElementById("update-connector-modal");
-                var closeModalBtn = document.getElementById("close-modal-btn");
+    document.addEventListener("DOMContentLoaded", function() {
+        // Mostrar el modal de actualización cuando se haga clic en el botón "Actualizar Conector NB"
+        var updateConnectorBtn = document.getElementById("update-connector-btn");
+        var updateConnectorModal = document.getElementById("update-connector-modal");
+        var closeModalBtn = document.getElementById("close-modal-btn");
 
-                if (updateConnectorBtn && updateConnectorModal && closeModalBtn) {
-                    updateConnectorBtn.addEventListener("click", function() {
-                        updateConnectorModal.style.display = "flex";
-                    });
+        if (updateConnectorBtn && updateConnectorModal && closeModalBtn) {
+            updateConnectorBtn.addEventListener("click", function() {
+                updateConnectorModal.style.display = "flex";
+            });
 
-                    closeModalBtn.addEventListener("click", function() {
-                        updateConnectorModal.style.display = "none";
-                    });
+            closeModalBtn.addEventListener("click", function() {
+                updateConnectorModal.style.display = "none";
+            });
 
-                    // Ocultar el modal de actualización cuando se haga clic fuera del modal
-                    updateConnectorModal.addEventListener("click", function(event) {
-                        if (event.target === this) {
-                            updateConnectorModal.style.display = "none";
-                        }
-                    });
-                }
-
-                // Mostrar el modal de confirmación cuando se haga clic en el botón "Eliminar Productos"
-                var deleteAllBtn = document.getElementById("delete-all-btn");
-                var deleteConfirmModal = document.getElementById("delete-confirm-modal");
-                var cancelDeleteBtn = document.getElementById("cancel-delete");
-                var confirmDeleteBtn = document.getElementById("confirm-delete-btn");
-                var confirmDeleteForm = document.getElementById("confirm-delete-form");
-
-                if (deleteAllBtn && deleteConfirmModal && cancelDeleteBtn && confirmDeleteBtn) {
-                    deleteAllBtn.addEventListener("click", function() {
-                        deleteConfirmModal.style.display = "flex";
-                    });
-
-                    cancelDeleteBtn.addEventListener("click", function() {
-                        deleteConfirmModal.style.display = "none";
-                    });
-
-                    // Ocultar el modal de confirmación cuando se haga clic fuera del modal
-                    deleteConfirmModal.addEventListener("click", function(event) {
-                        if (event.target === this) {
-                            deleteConfirmModal.style.display = "none";
-                        }
-                    });
-
-                    confirmDeleteBtn.addEventListener("click", function() {
-                        var formData = new FormData(confirmDeleteForm);
-                        fetch("' . esc_url(admin_url('admin-ajax.php')) . '", {
-                            method: "POST",
-                            body: formData,
-                            credentials: "same-origin"
-                        }).then(response => response.json()).then(data => {
-                            if (data.success) {
-                                alert("Productos eliminados exitosamente.");
-                                deleteConfirmModal.style.display = "none";
-                            } else {
-                                alert("Error: " + data.data);
-                            }
-                        }).catch(error => {
-                            console.error("Error:", error);
-                        });
-                    });
+            // Ocultar el modal de actualización cuando se haga clic fuera del modal
+            updateConnectorModal.addEventListener("click", function(event) {
+                if (event.target === this) {
+                    updateConnectorModal.style.display = "none";
                 }
             });
-        </script>';
+        }
+
+        // Mostrar el modal de confirmación cuando se haga clic en el botón "Eliminar Productos"
+        var deleteAllBtn = document.getElementById("delete-all-btn");
+        var deleteConfirmModal = document.getElementById("delete-confirm-modal");
+        var cancelDeleteBtn = document.getElementById("cancel-delete");
+        var confirmDeleteBtn = document.getElementById("confirm-delete-btn");
+        var confirmDeleteForm = document.getElementById("confirm-delete-form");
+
+        if (deleteAllBtn && deleteConfirmModal && cancelDeleteBtn && confirmDeleteBtn) {
+            deleteAllBtn.addEventListener("click", function() {
+                deleteConfirmModal.style.display = "flex";
+            });
+
+            cancelDeleteBtn.addEventListener("click", function() {
+                deleteConfirmModal.style.display = "none";
+            });
+
+            // Ocultar el modal de confirmación cuando se haga clic fuera del modal
+            deleteConfirmModal.addEventListener("click", function(event) {
+                if (event.target === this) {
+                    deleteConfirmModal.style.display = "none";
+                }
+            });
+
+            confirmDeleteBtn.addEventListener("click", function() {
+                var formData = new FormData(confirmDeleteForm);
+                fetch("' . esc_url(admin_url('admin-ajax.php')) . '", {
+                    method: "POST",
+                    body: formData,
+                    credentials: "same-origin"
+                }).then(response => response.json()).then(data => {
+                    if (data.success) {
+                        alert("Productos eliminados exitosamente.");
+                        deleteConfirmModal.style.display = "none";
+                    } else {
+                        alert("Error: " + data.data);
+                    }
+                }).catch(error => {
+                    console.error("Error:", error);
+                });
+            });
+        }
+    });
+    </script>';
 }
-
-
 
 // Asegúrate de incluir FontAwesome en tu tema
 function enqueue_fontawesome()
@@ -612,15 +651,6 @@ add_action('admin_enqueue_scripts', 'enqueue_fontawesome');
 function nb_callback_full()
 {
     nb_callback(true);
-}
-
-function nb_cron_interval($schedules)
-{
-    $schedules['every_hour'] = array(
-        'interval'  => 3600, // 1 hora en segundos
-        'display'   => 'Every hour'
-    );
-    return $schedules;
 }
 
 function nb_activation()
