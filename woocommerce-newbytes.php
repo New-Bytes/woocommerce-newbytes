@@ -4,11 +4,11 @@ Plugin Name: Conector NewBytes
 Description: Sincroniza los productos del catálogo de NewBytes con WooCommerce.
 Author: NewBytes
 Author URI: https://nb.com.ar
-Version: 0.0.3
+Version: 0.0.5
 */
 
 const API_URL_NB = 'https://api.nb.com.ar/v1';
-const VERSION_NB = '0.0.3';
+const VERSION_NB = '0.0.5';
 
 function nb_plugin_action_links($links)
 {
@@ -157,6 +157,12 @@ function nb_callback($update_all = false)
                 $id = $existing_skus[$sku];
                 $updated_count++;
             } elseif ($row['amountStock'] > 0) {
+
+                # si no tiene sku, no se crea el producto
+                if ($sku == $prefix) {
+                    continue;
+                }
+
                 $product_data = array(
                     'post_title'   => $row['title'],
                     'post_type'    => 'product',
@@ -238,7 +244,6 @@ function nb_callback($update_all = false)
     }
 }
 
-
 function nb_menu()
 {
     add_options_page('Conector NB', 'Conector NB', 'manage_options', 'nb', 'nb_options_page');
@@ -295,7 +300,6 @@ function nb_options_page()
         echo '</form>';
     }
 
-
     echo '<div class="wrap" style="display: flex; justify-content: center; align-items: center; height: 100%;">';
     echo '<div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); text-align: center; max-width: 600px; width: 100%;">';
     echo '<img src="' . esc_url($icon_url) . '" alt="Logo" style="width: 128px; height: 128px; margin-bottom: 20px;">';
@@ -333,6 +337,31 @@ function nb_options_page()
     echo '<tr>';
     echo '<th scope="row">Última actualización</th>';
     echo '<td id=last_update>' . esc_attr(get_option('nb_last_update') != '' ? date('d/m/Y H:i', strtotime(get_option('nb_last_update') . '-3 hours')) : '--') . '</td>';
+    echo '</tr>';
+    echo '<tr>';
+    echo '<th scope="row">Intervalo de sincronización automática</th>';
+    echo '<td><select name="nb_sync_interval" id="nb_sync_interval">';
+    $intervals = array(
+        '3600'  => 'Cada 1 hora',
+        '7200'  => 'Cada 2 horas',
+        '10800' => 'Cada 3 horas',
+        '14400' => 'Cada 4 horas',
+        '18000' => 'Cada 5 horas',
+        '21600' => 'Cada 6 horas',
+        '25200' => 'Cada 7 horas',
+        '28800' => 'Cada 8 horas',
+        '32400' => 'Cada 9 horas',
+        '36000' => 'Cada 10 horas',
+        '39600' => 'Cada 11 horas',
+        '43200' => 'Cada 12 horas'
+    );
+
+    $current_interval = get_option('nb_sync_interval', 3600); // Valor por defecto 1 hora
+    foreach ($intervals as $value => $label) {
+        echo '<option value="' . esc_attr($value) . '"' . selected($current_interval, $value, false) . '>' . esc_html($label) . '</option>';
+    }
+    echo '</select>';
+    echo '<p class="description">Selecciona el intervalo en el que deseas que se sincronice automáticamente.</p></td>';
     echo '</tr>';
     echo '</tbody>';
     echo '</table>';
@@ -399,18 +428,275 @@ function nb_options_page()
                 border: none;
                 padding: 10px;
                 border-radius: 5px;
-                cursor: pointer;
-            ">Cerrar</button>
-        </div>
-    </div>';
+                cursor: pointer">
+                Cerrar</button>
+            </div>
+        </div>';
 
+    btn_delete_products();
+    modal_confirm_delete_products();
+    js_handler_modals();
+}
+
+function nb_cron_interval($schedules)
+{
+    $schedules['every_hour'] = array(
+        'interval'  => 3600, // 1 hora en segundos
+        'display'   => 'Cada 1 hora'
+    );
+    $schedules['every_2_hours'] = array(
+        'interval'  => 7200, // 2 horas en segundos
+        'display'   => 'Cada 2 horas'
+    );
+    $schedules['every_3_hours'] = array(
+        'interval'  => 10800, // 3 horas en segundos
+        'display'   => 'Cada 3 horas'
+    );
+    $schedules['every_4_hours'] = array(
+        'interval'  => 14400, // 4 horas en segundos
+        'display'   => 'Cada 4 horas'
+    );
+    $schedules['every_5_hours'] = array(
+        'interval'  => 18000, // 5 horas en segundos
+        'display'   => 'Cada 5 horas'
+    );
+    $schedules['every_6_hours'] = array(
+        'interval'  => 21600, // 6 horas en segundos
+        'display'   => 'Cada 6 horas'
+    );
+    $schedules['every_7_hours'] = array(
+        'interval'  => 25200, // 7 horas en segundos
+        'display'   => 'Cada 7 horas'
+    );
+    $schedules['every_8_hours'] = array(
+        'interval'  => 28800, // 8 horas en segundos
+        'display'   => 'Cada 8 horas'
+    );
+    $schedules['every_9_hours'] = array(
+        'interval'  => 32400, // 9 horas en segundos
+        'display'   => 'Cada 9 horas'
+    );
+    $schedules['every_10_hours'] = array(
+        'interval'  => 36000, // 10 horas en segundos
+        'display'   => 'Cada 10 horas'
+    );
+    $schedules['every_11_hours'] = array(
+        'interval'  => 39600, // 11 horas en segundos
+        'display'   => 'Cada 11 horas'
+    );
+    $schedules['every_12_hours'] = array(
+        'interval'  => 43200, // 12 horas en segundos
+        'display'   => 'Cada 12 horas'
+    );
+    return $schedules;
+}
+
+function nb_schedule_sync()
+{
+    $current_interval = get_option('nb_sync_interval', 3600); // Valor por defecto: 1 hora
+
+    if (wp_next_scheduled('nb_cron_sync')) {
+        wp_clear_scheduled_hook('nb_cron_sync');
+    }
+
+    if (!wp_next_scheduled('nb_cron_sync')) {
+        wp_schedule_event(time(), array_search($current_interval, array(
+            '3600'  => 'every_hour',
+            '7200'  => 'every_2_hours',
+            '10800' => 'every_3_hours',
+            '14400' => 'every_4_hours',
+            '18000' => 'every_5_hours',
+            '21600' => 'every_6_hours',
+            '25200' => 'every_7_hours',
+            '28800' => 'every_8_hours',
+            '32400' => 'every_9_hours',
+            '36000' => 'every_10_hours',
+            '39600' => 'every_11_hours',
+            '43200' => 'every_12_hours'
+        )), 'nb_cron_sync');
+    }
+}
+
+
+function nb_delete_products()
+{
+    global $wpdb;
+
+    try {
+        $original_max_execution_time = ini_get('max_execution_time');
+        $original_memory_limit       = ini_get('memory_limit');
+
+        ini_set('max_execution_time', '1800'); // 30 minutos
+        ini_set('memory_limit', '2048M'); // 2 GB
+
+        $start_time = microtime(true); // Tiempo de inicio del proceso
+
+        $prefix = get_option('nb_prefix');
+        if (!$prefix) {
+            wp_send_json_error('No se encontró el prefijo del SKU.');
+            return;
+        }
+
+        # Eliminar productos con el prefijo especificado
+        $deleted_count = $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM {$wpdb->posts} 
+                 WHERE post_type = 'product' 
+                 AND post_status = 'publish' 
+                 AND ID IN (
+                     SELECT post_id FROM {$wpdb->postmeta} 
+                     WHERE meta_key = '_sku' 
+                     AND meta_value REGEXP %s
+                 )",
+                '^' . $prefix
+            )
+        );
+
+        update_option('nb_last_update', date("Y-m-d H:i"));
+
+        $end_time      = microtime(true); // Tiempo de finalización del proceso
+        $sync_duration = $end_time - $start_time;
+
+        $hours   = floor($sync_duration / 3600);
+        $minutes = floor(($sync_duration % 3600) / 60);
+        $seconds = $sync_duration % 60;
+
+        $response_data = array(
+            'deleted'       => $deleted_count,
+            'sync_duration' => array(
+                'hours'   => $hours,
+                'minutes' => $minutes,
+                'seconds' => number_format($seconds, 2)
+            )
+        );
+
+        wp_send_json_success($response_data);
+
+        ini_set('max_execution_time', $original_max_execution_time);
+        ini_set('memory_limit', $original_memory_limit);
+    } catch (Exception $e) {
+        wp_send_json_error('Error: ' . $e->getMessage());
+    }
+}
+
+add_action('wp_ajax_nb_delete_products', 'nb_delete_products');
+add_action('admin_post_nb_delete_products', 'nb_delete_products');
+
+function modal_confirm_delete_products()
+{
+    echo '<div id="delete-confirm-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 9999;">
+        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 400px; width: 100%;">
+            <h2>Advertencia</h2>
+            <p>Esta acción eliminará todos los productos de NewBytes.</p>
+            <form id="confirm-delete-form" style="display: inline;">
+                <input type="hidden" name="action" value="nb_delete_products" />
+                <input type="hidden" name="delete_all" value="1" />';
+    wp_nonce_field('nb_delete_all', 'nb_delete_all_nonce');
+    echo '  <button type="button" id="confirm-delete-btn" class="button" style="
+                    background-color: #f55a39;
+                    min-width: 130px;
+                    height: 40px;
+                    color: #fff;
+                    border: none;
+                    padding: 5px 10px;
+                    font-weight: bold;
+                    border-radius: 5px;
+                    cursor: pointer;">
+                        Eliminar
+                    </button>
+                    <button type="button" id="cancel-delete" class="button"
+                    style="
+                    min-width: 130px;
+                    height: 40px;
+                    background-color: #e0e0e0;
+                    color: #333;
+                    border: none;
+                    padding: 5px 10px;
+                    font-weight: bold;
+                    border-radius: 5px;
+                    cursor: pointer;">
+                        Cancelar
+                    </button>
+                </form>
+            </div>
+        </div>';
+}
+
+
+function btn_delete_products()
+{
+    echo '<button type="button" class="button button-secondary" id="delete-all-btn" style="margin-top: 20px; border: none; background-color: #f55a39; color: #fff;">
+        Eliminar Productos
+    </button>';
+}
+
+function js_handler_modals()
+{
     echo '<script>
-    document.getElementById("update-connector-btn").addEventListener("click", function() {
-        document.getElementById("update-connector-modal").style.display = "flex";
-    });
+    document.addEventListener("DOMContentLoaded", function() {
+        // Mostrar el modal de actualización cuando se haga clic en el botón "Actualizar Conector NB"
+        var updateConnectorBtn = document.getElementById("update-connector-btn");
+        var updateConnectorModal = document.getElementById("update-connector-modal");
+        var closeModalBtn = document.getElementById("close-modal-btn");
 
-    document.getElementById("close-modal-btn").addEventListener("click", function() {
-        document.getElementById("update-connector-modal").style.display = "none";
+        if (updateConnectorBtn && updateConnectorModal && closeModalBtn) {
+            updateConnectorBtn.addEventListener("click", function() {
+                updateConnectorModal.style.display = "flex";
+            });
+
+            closeModalBtn.addEventListener("click", function() {
+                updateConnectorModal.style.display = "none";
+            });
+
+            // Ocultar el modal de actualización cuando se haga clic fuera del modal
+            updateConnectorModal.addEventListener("click", function(event) {
+                if (event.target === this) {
+                    updateConnectorModal.style.display = "none";
+                }
+            });
+        }
+
+        // Mostrar el modal de confirmación cuando se haga clic en el botón "Eliminar Productos"
+        var deleteAllBtn = document.getElementById("delete-all-btn");
+        var deleteConfirmModal = document.getElementById("delete-confirm-modal");
+        var cancelDeleteBtn = document.getElementById("cancel-delete");
+        var confirmDeleteBtn = document.getElementById("confirm-delete-btn");
+        var confirmDeleteForm = document.getElementById("confirm-delete-form");
+
+        if (deleteAllBtn && deleteConfirmModal && cancelDeleteBtn && confirmDeleteBtn) {
+            deleteAllBtn.addEventListener("click", function() {
+                deleteConfirmModal.style.display = "flex";
+            });
+
+            cancelDeleteBtn.addEventListener("click", function() {
+                deleteConfirmModal.style.display = "none";
+            });
+
+            // Ocultar el modal de confirmación cuando se haga clic fuera del modal
+            deleteConfirmModal.addEventListener("click", function(event) {
+                if (event.target === this) {
+                    deleteConfirmModal.style.display = "none";
+                }
+            });
+
+            confirmDeleteBtn.addEventListener("click", function() {
+                var formData = new FormData(confirmDeleteForm);
+                fetch("' . esc_url(admin_url('admin-ajax.php')) . '", {
+                    method: "POST",
+                    body: formData,
+                    credentials: "same-origin"
+                }).then(response => response.json()).then(data => {
+                    if (data.success) {
+                        alert("Productos eliminados exitosamente.");
+                        deleteConfirmModal.style.display = "none";
+                    } else {
+                        alert("Error: " + data.data);
+                    }
+                }).catch(error => {
+                    console.error("Error:", error);
+                });
+            });
+        }
     });
     </script>';
 }
@@ -427,15 +713,6 @@ function nb_callback_full()
     nb_callback(true);
 }
 
-function nb_cron_interval($schedules)
-{
-    // $schedules['every_hour'] = array(
-    //     'interval'  => 3600,
-    //     'display'   => 'Every hour'
-    // );
-    // return $schedules;
-}
-
 function nb_activation()
 {
     wp_schedule_event(time(), 'every_hour', 'nb_cron_hook');
@@ -444,6 +721,7 @@ function nb_activation()
 function nb_deactivation()
 {
     wp_clear_scheduled_hook('nb_cron_hook');
+    wp_clear_scheduled_hook('nb_cron_sync');
 }
 
 function nb_show_error_message($error)
@@ -487,7 +765,7 @@ function get_latest_version_nb()
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'nb_plugin_action_links');
 add_action('admin_menu', 'nb_menu');
 add_action('admin_init', 'nb_register_settings');
-// add_action('nb_cron_hook', 'nb_callback');
+add_action('nb_cron_hook', 'nb_callback');
 add_filter('cron_schedules', 'nb_cron_interval');
 register_activation_hook(__FILE__, 'nb_activation');
 register_deactivation_hook(__FILE__, 'nb_deactivation');
