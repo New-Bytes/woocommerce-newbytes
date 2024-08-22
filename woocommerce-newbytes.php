@@ -4,11 +4,11 @@ Plugin Name: Conector NewBytes
 Description: Sincroniza los productos del catálogo de NewBytes con WooCommerce.
 Author: NewBytes
 Author URI: https://nb.com.ar
-Version: 0.0.5
+Version: 0.0.6
 */
 
 const API_URL_NB = 'https://api.nb.com.ar/v1';
-const VERSION_NB = '0.0.5';
+const VERSION_NB = '0.0.6';
 
 function nb_plugin_action_links($links)
 {
@@ -19,44 +19,49 @@ function nb_plugin_action_links($links)
 
 function nb_get_token()
 {
-    $args = array(
-        'headers' => array(
-            'Content-Type' => 'application/json'
-        ),
-        'body' => json_encode(array(
-            'user' => get_option('nb_user'),
-            'password' => get_option('nb_password'),
-            'mode' => 'wp-extension',
-            'domain' =>  home_url()
-        )),
-        'timeout' => '5',
-        'blocking' => true,
-    );
+    try {
+        // Siempre solicitar un nuevo token
+        $args = array(
+            'headers' => array(
+                'Content-Type' => 'application/json'
+            ),
+            'body' => json_encode(array(
+                'user' => get_option('nb_user'),
+                'password' => get_option('nb_password'),
+                'mode' => 'wp-extension',
+                'domain' => home_url()
+            )),
+            'timeout' => '5',
+            'blocking' => true,
+        );
 
-    $response = wp_remote_post(API_URL_NB . '/auth/login', $args);
+        $response = wp_remote_post(API_URL_NB . '/auth/login', $args);
 
-    if (is_wp_error($response)) {
-        nb_show_error_message('Error en la solicitud de token: ' . $response->get_error_message());
+        if (is_wp_error($response)) {
+            nb_show_error_message('Error en la solicitud de token: ' . $response->get_error_message());
+            return null;
+        }
+
+        $body = wp_remote_retrieve_body($response);
+        $json = json_decode($body, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            nb_show_error_message('Error al decodificar JSON de la solicitud de token: ' . json_last_error_msg());
+            return null;
+        }
+
+        if (isset($json['token'])) {
+            return $json['token'];
+        }
+
+        nb_show_error_message('Token no encontrado en la respuesta: ' . json_encode($json));
+        return null;
+    } catch (Exception $e) {
+        echo $e->getMessage();
         return null;
     }
-
-    $body = wp_remote_retrieve_body($response);
-
-    $json = json_decode($body, true);
-
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        nb_show_error_message('Error al decodificar JSON de la solicitud de token: ' . json_last_error_msg());
-        return null;
-    }
-
-    if (isset($json['token'])) {
-        update_option('nb_token', $json['token']);
-        return $json['token'];
-    }
-
-    nb_show_error_message('Token no encontrado en la respuesta: ' . json_encode($json));
-    return null;
 }
+
 function output_response($data)
 {
     echo json_encode($data);
@@ -75,7 +80,7 @@ function nb_callback($update_all = false)
 
         $start_time = microtime(true); // Tiempo de inicio
 
-        $token = get_option('nb_token') ? get_option('nb_token') : nb_get_token();
+        $token = nb_get_token();
         if (!$token) {
             output_response(array('error' => 'No fue posible obtener el token.'));
             return;
@@ -108,61 +113,33 @@ function nb_callback($update_all = false)
 
         // Obtener todos los SKUs existentes de WooCommerce con el prefijo especificado
         $prefix = get_option('nb_prefix');
-        $args = array(
-            'limit'    => -1,
-            'return'   => 'ids',
-            'paginate' => false,
-            'meta_query' => array(
-                array(
-                    'key'     => '_sku',
-                    'value'   => '^' . $prefix,
-                    'compare' => 'REGEXP'
-                )
-            )
-        );
-
-        $existing_products = wc_get_products($args);
         $existing_skus = array();
 
-        foreach ($existing_products as $product_id) {
-            $product = wc_get_product($product_id);
-            $existing_skus[$product->get_sku()] = $product_id;
+        foreach ($json as $row) {
+            $existing_skus[] = $prefix . $row['sku'];
         }
 
-        // Procesamiento de productos
+        // Llamar a la función para eliminar productos que no están en la respuesta
+        $delete_result = nb_delete_products_by_prefix($existing_skus, $prefix);
+
+        // Continuar con el procesamiento de productos
         $updated_count = 0;
         $created_count = 0;
         $categories_cache = array();
 
         foreach ($json as $row) {
             $id = null;
-
-            // Manejo de categoría
-            if (!isset($categories_cache[$row['category']])) {
-                $category_term = term_exists($row['category'], 'product_cat');
-                if (!$category_term && !is_numeric($row['category'])) {
-                    if ($row['category'] != '') {
-                        $category_term = wp_insert_term($row['category'], 'product_cat');
-                    }
-                }
-                $categories_cache[$row['category']] = $category_term ? $category_term['term_id'] : null;
-            } else {
-                $category_term = $categories_cache[$row['category']];
-            }
-
             $sku = $prefix . $row['sku'];
 
-            // Validar si el SKU ya existe
-            if (isset($existing_skus[$sku])) {
-                $id = $existing_skus[$sku];
+            // Verificar si el SKU ya existe
+            $existing_product_id = wc_get_product_id_by_sku($sku);
+
+            if ($existing_product_id) {
+                // Actualizar producto existente
+                $id = $existing_product_id;
                 $updated_count++;
-            } elseif ($row['amountStock'] > 0) {
-
-                # si no tiene sku, no se crea el producto
-                if ($sku == $prefix) {
-                    continue;
-                }
-
+            } elseif ($row['amountStock'] > 0 && !empty($row['sku'])) {
+                // Crear nuevo producto si no existe y tiene stock
                 $product_data = array(
                     'post_title'   => $row['title'],
                     'post_type'    => 'product',
@@ -172,6 +149,7 @@ function nb_callback($update_all = false)
                 $created_count++;
             }
 
+            // Si hay un ID (producto existente o nuevo)
             if ($id) {
                 try {
                     $price = $row['price']['finalPrice'] * $row['cotizacion'];
@@ -183,17 +161,34 @@ function nb_callback($update_all = false)
                     $product = wc_get_product($id);
                     $product->set_sku($sku);
                     $product->set_short_description(get_option('nb_description'));
+
+                    // Manejo de categoría del usuario o categoría original de la API
+                    $category_to_use = !empty($row['categoryDescriptionUser']) ? $row['categoryDescriptionUser'] : $row['category'];
+
+                    if (!isset($categories_cache[$category_to_use])) {
+                        $category_term = term_exists($category_to_use, 'product_cat');
+                        if (!$category_term && !is_numeric($category_to_use)) {
+                            if ($category_to_use != '') {
+                                $category_term = wp_insert_term($category_to_use, 'product_cat');
+                            }
+                        }
+                        $categories_cache[$category_to_use] = $category_term ? $category_term['term_id'] : null;
+                    } else {
+                        $category_term = $categories_cache[$category_to_use];
+                    }
+
                     if ($category_term) {
                         $product->set_category_ids(array($category_term));
                     }
+
                     $product->set_regular_price($price);
                     $product->set_manage_stock(true);
                     $product->set_stock_quantity($row['amountStock']);
                     $product->set_stock_status($row['amountStock'] > 0 ? 'instock' : 'outofstock');
-                    $product->set_weight($row['weightAverage']);
-                    $product->set_width($row['widthAverage']);
-                    $product->set_length($row['lengthAverage']);
-                    $product->set_height($row['highAverage']);
+                    $product->set_weight($row['weightAverage'] / 1000); # gr a kg
+                    $product->set_width($row['widthAverage'] / 10);     # mm a cm
+                    $product->set_length($row['lengthAverage'] / 10);   # mm a cm
+                    $product->set_height($row['highAverage'] / 10);     # mm a cm
                     $product->save();
 
                     // Optimización de imagen destacada
@@ -201,7 +196,6 @@ function nb_callback($update_all = false)
                         fifu_dev_set_image($id, $row['mainImage']);
                     }
                 } catch (Exception $e) {
-                    // Manejar errores relacionados con SKU duplicados o inválidos
                     error_log('Error al procesar el producto con SKU ' . $sku . ': ' . $e->getMessage());
                     continue; // Saltar este producto y continuar con los siguientes
                 }
@@ -220,6 +214,7 @@ function nb_callback($update_all = false)
         $response_data = array(
             'updated' => $updated_count,
             'created' => $created_count,
+            'deleted' => $delete_result['deleted'],
             'sync_duration' => array(
                 'hours' => $hours,
                 'minutes' => $minutes,
@@ -233,16 +228,63 @@ function nb_callback($update_all = false)
         ini_set('max_execution_time', $original_max_execution_time);
         ini_set('memory_limit', $original_memory_limit);
     } catch (Exception $e) {
-        // Captura la excepción y muestra el mensaje de error
         echo 'Error: ' . $e->getMessage();
-
-        // Opcional: puedes registrar el error en un archivo de log
         error_log('Excepción capturada: ' . $e->getMessage() . ' en ' . $e->getFile() . ' en la línea ' . $e->getLine());
-
-        // Opcional: puedes proporcionar más información si es necesario
-        echo ' Archivo: ' . $e->getFile() . ' Línea: ' . $e->getLine();
     }
 }
+
+
+
+function nb_delete_products_by_prefix($existing_skus, $prefix)
+{
+    global $wpdb;
+
+    try {
+        $start_time = microtime(true); // Tiempo de inicio del proceso
+
+        // Escapar los SKUs existentes para la consulta
+        $escaped_skus = array_map(function ($sku) use ($wpdb) {
+            return $wpdb->prepare('%s', $sku);
+        }, $existing_skus);
+        $escaped_skus_list = implode(',', $escaped_skus);
+
+        // Eliminar productos con el prefijo especificado que no están en la lista de SKUs existentes
+        $deleted_count = $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM {$wpdb->posts} 
+                 WHERE post_type = 'product' 
+                 AND post_status = 'publish' 
+                 AND ID IN (
+                     SELECT post_id FROM {$wpdb->postmeta} 
+                     WHERE meta_key = '_sku' 
+                     AND meta_value REGEXP %s
+                     AND meta_value NOT IN ({$escaped_skus_list})
+                 )",
+                '^' . $prefix
+            )
+        );
+
+        $end_time = microtime(true); // Tiempo de finalización del proceso
+        $sync_duration = $end_time - $start_time;
+
+        $hours = floor($sync_duration / 3600);
+        $minutes = floor(($sync_duration % 3600) / 60);
+        $seconds = $sync_duration % 60;
+
+        return array(
+            'deleted' => $deleted_count,
+            'sync_duration' => array(
+                'hours' => $hours,
+                'minutes' => $minutes,
+                'seconds' => number_format($seconds, 2)
+            )
+        );
+    } catch (Exception $e) {
+        error_log('Error al eliminar productos: ' . $e->getMessage());
+        return array('error' => $e->getMessage());
+    }
+}
+
 
 function nb_menu()
 {
