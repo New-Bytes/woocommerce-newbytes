@@ -4,11 +4,11 @@ Plugin Name: Conector NewBytes
 Description: Sincroniza los productos del catálogo de NewBytes con WooCommerce.
 Author: NewBytes
 Author URI: https://nb.com.ar
-Version: 0.0.6
+Version: 0.0.7
 */
 
 const API_URL_NB = 'https://api.nb.com.ar/v1';
-const VERSION_NB = '0.0.6';
+const VERSION_NB = '0.0.7';
 
 function nb_plugin_action_links($links)
 {
@@ -70,6 +70,8 @@ function output_response($data)
 function nb_callback($update_all = false)
 {
     try {
+        error_log('nb_callback ejecutado a las: ' . date('Y-m-d H:i:s'), 3, __DIR__ . '/debug-newbytes.txt');
+
         // Guardar límites originales
         $original_max_execution_time = ini_get('max_execution_time');
         $original_memory_limit = ini_get('memory_limit');
@@ -195,6 +197,8 @@ function nb_callback($update_all = false)
                     if (!empty($row['mainImage']) && (is_plugin_active('featured-image-from-url/featured-image-from-url.php') || is_plugin_active('fifu-premium/fifu-premium.php'))) {
                         fifu_dev_set_image($id, $row['mainImage']);
                     }
+
+                    error_log('nb_callback ejecutado correctamente a las: ' . date('Y-m-d H:i:s'), 3, __DIR__ . '/debug-newbytes.txt');
                 } catch (Exception $e) {
                     error_log('Error al procesar el producto con SKU ' . $sku . ': ' . $e->getMessage());
                     continue; // Saltar este producto y continuar con los siguientes
@@ -232,8 +236,6 @@ function nb_callback($update_all = false)
         error_log('Excepción capturada: ' . $e->getMessage() . ' en ' . $e->getFile() . ' en la línea ' . $e->getLine());
     }
 }
-
-
 
 function nb_delete_products_by_prefix($existing_skus, $prefix)
 {
@@ -285,7 +287,6 @@ function nb_delete_products_by_prefix($existing_skus, $prefix)
     }
 }
 
-
 function nb_menu()
 {
     add_options_page('Conector NB', 'Conector NB', 'manage_options', 'nb', 'nb_options_page');
@@ -298,6 +299,7 @@ function nb_register_settings()
     register_setting('nb_options', 'nb_token');
     register_setting('nb_options', 'nb_prefix');
     register_setting('nb_options', 'nb_description');
+    register_setting('nb_options', 'nb_sync_interval');
 }
 
 function nb_options_page()
@@ -398,7 +400,7 @@ function nb_options_page()
         '43200' => 'Cada 12 horas'
     );
 
-    $current_interval = get_option('nb_sync_interval', 3600); // Valor por defecto 1 hora
+    $current_interval = get_option('nb_sync_interval', 3600); // Valor por defecto 5 minutos
     foreach ($intervals as $value => $label) {
         echo '<option value="' . esc_attr($value) . '"' . selected($current_interval, $value, false) . '>' . esc_html($label) . '</option>';
     }
@@ -480,86 +482,6 @@ function nb_options_page()
     js_handler_modals();
 }
 
-function nb_cron_interval($schedules)
-{
-    $schedules['every_hour'] = array(
-        'interval'  => 3600, // 1 hora en segundos
-        'display'   => 'Cada 1 hora'
-    );
-    $schedules['every_2_hours'] = array(
-        'interval'  => 7200, // 2 horas en segundos
-        'display'   => 'Cada 2 horas'
-    );
-    $schedules['every_3_hours'] = array(
-        'interval'  => 10800, // 3 horas en segundos
-        'display'   => 'Cada 3 horas'
-    );
-    $schedules['every_4_hours'] = array(
-        'interval'  => 14400, // 4 horas en segundos
-        'display'   => 'Cada 4 horas'
-    );
-    $schedules['every_5_hours'] = array(
-        'interval'  => 18000, // 5 horas en segundos
-        'display'   => 'Cada 5 horas'
-    );
-    $schedules['every_6_hours'] = array(
-        'interval'  => 21600, // 6 horas en segundos
-        'display'   => 'Cada 6 horas'
-    );
-    $schedules['every_7_hours'] = array(
-        'interval'  => 25200, // 7 horas en segundos
-        'display'   => 'Cada 7 horas'
-    );
-    $schedules['every_8_hours'] = array(
-        'interval'  => 28800, // 8 horas en segundos
-        'display'   => 'Cada 8 horas'
-    );
-    $schedules['every_9_hours'] = array(
-        'interval'  => 32400, // 9 horas en segundos
-        'display'   => 'Cada 9 horas'
-    );
-    $schedules['every_10_hours'] = array(
-        'interval'  => 36000, // 10 horas en segundos
-        'display'   => 'Cada 10 horas'
-    );
-    $schedules['every_11_hours'] = array(
-        'interval'  => 39600, // 11 horas en segundos
-        'display'   => 'Cada 11 horas'
-    );
-    $schedules['every_12_hours'] = array(
-        'interval'  => 43200, // 12 horas en segundos
-        'display'   => 'Cada 12 horas'
-    );
-    return $schedules;
-}
-
-function nb_schedule_sync()
-{
-    $current_interval = get_option('nb_sync_interval', 3600); // Valor por defecto: 1 hora
-
-    if (wp_next_scheduled('nb_cron_sync')) {
-        wp_clear_scheduled_hook('nb_cron_sync');
-    }
-
-    if (!wp_next_scheduled('nb_cron_sync')) {
-        wp_schedule_event(time(), array_search($current_interval, array(
-            '3600'  => 'every_hour',
-            '7200'  => 'every_2_hours',
-            '10800' => 'every_3_hours',
-            '14400' => 'every_4_hours',
-            '18000' => 'every_5_hours',
-            '21600' => 'every_6_hours',
-            '25200' => 'every_7_hours',
-            '28800' => 'every_8_hours',
-            '32400' => 'every_9_hours',
-            '36000' => 'every_10_hours',
-            '39600' => 'every_11_hours',
-            '43200' => 'every_12_hours'
-        )), 'nb_cron_sync');
-    }
-}
-
-
 function nb_delete_products()
 {
     global $wpdb;
@@ -621,8 +543,6 @@ function nb_delete_products()
     }
 }
 
-add_action('wp_ajax_nb_delete_products', 'nb_delete_products');
-add_action('admin_post_nb_delete_products', 'nb_delete_products');
 
 function modal_confirm_delete_products()
 {
@@ -663,7 +583,6 @@ function modal_confirm_delete_products()
             </div>
         </div>';
 }
-
 
 function btn_delete_products()
 {
@@ -743,27 +662,51 @@ function js_handler_modals()
     </script>';
 }
 
-// Asegúrate de incluir FontAwesome en tu tema
 function enqueue_fontawesome()
 {
     wp_enqueue_style('fontawesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css');
 }
-add_action('admin_enqueue_scripts', 'enqueue_fontawesome');
 
-function nb_callback_full()
+function nb_cron_interval($schedules)
 {
-    nb_callback(true);
+    // Obtén el intervalo seleccionado por el usuario
+    $user_interval = intval(get_option('nb_sync_interval', 3600)); // Valor por defecto: 1 hora
+
+    // Convertimos a minutos.
+    $user_interval_in_min = $user_interval / 60;
+
+    // Añadir el intervalo personalizado basado en la selección del usuario
+    $schedules['custom_user_interval'] = array(
+        'interval' => $user_interval,
+        'display'  => __("NewBytes: Intervalo personalizado para cada {$user_interval_in_min} minutos")
+    );
+
+    return $schedules;
 }
 
 function nb_activation()
 {
-    wp_schedule_event(time(), 'every_hour', 'nb_cron_hook');
+    nb_update_cron_schedule();
 }
 
 function nb_deactivation()
 {
-    wp_clear_scheduled_hook('nb_cron_hook');
-    wp_clear_scheduled_hook('nb_cron_sync');
+    $timestamp = wp_next_scheduled('nb_cron_sync_event');
+    if ($timestamp) {
+        wp_unschedule_event($timestamp, 'nb_cron_sync_event');
+    }
+}
+
+function nb_update_cron_schedule($old_value = null, $value = null)
+{
+    // Desprogramar el evento existente
+    $timestamp = wp_next_scheduled('nb_cron_sync_event');
+    if ($timestamp) {
+        wp_unschedule_event($timestamp, 'nb_cron_sync_event');
+    }
+
+    // Programar un nuevo evento con el intervalo actualizado
+    wp_schedule_event(time(), 'custom_user_interval', 'nb_cron_sync_event');
 }
 
 function nb_show_error_message($error)
@@ -803,12 +746,24 @@ function get_latest_version_nb()
     }
 }
 
+add_action('admin_enqueue_scripts', 'enqueue_fontawesome');
+add_action('wp_ajax_nb_delete_products', 'nb_delete_products');
+add_action('admin_post_nb_delete_products', 'nb_delete_products');
+
+
+add_action('update_option_nb_sync_interval', 'nb_update_cron_schedule', 10, 2);
 
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'nb_plugin_action_links');
+
+
+add_filter('cron_schedules', 'nb_cron_interval');
+
+
 add_action('admin_menu', 'nb_menu');
 add_action('admin_init', 'nb_register_settings');
-add_action('nb_cron_hook', 'nb_callback');
-add_filter('cron_schedules', 'nb_cron_interval');
+
+add_action('nb_cron_sync_event', 'nb_callback');
+
 register_activation_hook(__FILE__, 'nb_activation');
 register_deactivation_hook(__FILE__, 'nb_deactivation');
 
@@ -821,7 +776,6 @@ add_action('rest_api_init', function () {
         'permission_callback' => '__return_true',
     ));
 });
-
 
 // Función de callback para el endpoint de sincronización
 function nb_sync_catalog(WP_REST_Request $request)
