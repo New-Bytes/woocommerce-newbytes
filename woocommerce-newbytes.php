@@ -400,7 +400,7 @@ function nb_options_page()
         '43200' => 'Cada 12 horas'
     );
 
-    $current_interval = get_option('nb_sync_interval', 3600); // Valor por defecto 5 minutos
+    $current_interval = get_option('nb_sync_interval', 3600); // Valor por defecto 1 hora
     foreach ($intervals as $value => $label) {
         echo '<option value="' . esc_attr($value) . '"' . selected($current_interval, $value, false) . '>' . esc_html($label) . '</option>';
     }
