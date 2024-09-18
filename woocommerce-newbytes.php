@@ -4,11 +4,11 @@ Plugin Name: Conector NewBytes
 Description: Sincroniza los productos del catálogo de NewBytes con WooCommerce.
 Author: NewBytes
 Author URI: https://nb.com.ar
-Version: 0.0.7
+Version: 0.0.8
 */
 
 const API_URL_NB = 'https://api.nb.com.ar/v1';
-const VERSION_NB = '0.0.7';
+const VERSION_NB = '0.0.8';
 
 function nb_plugin_action_links($links)
 {
@@ -193,10 +193,17 @@ function nb_callback($update_all = false)
                     $product->set_height($row['highAverage'] / 10);     # mm a cm
                     $product->save();
 
-                    // Optimización de imagen destacada
-                    if (!empty($row['mainImage']) && (is_plugin_active('featured-image-from-url/featured-image-from-url.php') || is_plugin_active('fifu-premium/fifu-premium.php'))) {
-                        fifu_dev_set_image($id, $row['mainImage']);
+                    # Optimización de imagen destacada
+                    if ((is_plugin_active('featured-image-from-url/featured-image-from-url.php') || is_plugin_active('fifu-premium/fifu-premium.php'))) {
+                        # Verifica si 'mainImageExp' no está vacío, de lo contrario usar 'mainImage'
+                        $image = !empty($row['mainImageExp']) ? $row['mainImageExp'] : (isset($row['mainImage']) ? $row['mainImage'] : null);
+                        
+                        # Si hay una imagen válida, establecerla como imagen destacada
+                        if (!empty($image)) {
+                            fifu_dev_set_image($id, $image);
+                        }
                     }
+
 
                     error_log('nb_callback ejecutado correctamente a las: ' . date('Y-m-d H:i:s'), 3, __DIR__ . '/debug-newbytes.txt');
                 } catch (Exception $e) {
