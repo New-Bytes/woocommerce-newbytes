@@ -109,6 +109,18 @@ function nb_options_page()
     echo '</select>';
     echo '<p class="description">Selecciona el intervalo en el que deseas que se sincronice automáticamente.</p></td>';
     echo '</tr>';
+    // Add Sync No IVA
+    echo '<tr>';
+    echo '<th scope="row">Sincronizar sin IVA</th>';
+    echo '<td><input type="checkbox" name="nb_sync_no_iva" id="nb_sync_no_iva" value="1" ' . checked(1, get_option('nb_sync_no_iva'), false) . ' />';
+    echo '<p class="description">Selecciona esta opción si deseas sincronizar los productos sin IVA.</p></td>';
+    echo '</tr>';
+    // Add Sync USD
+    echo '<tr>';
+    echo '<th scope="row">Sincronizar en USD</th>';
+    echo '<td><input type="checkbox" name="nb_sync_usd" id="nb_sync_usd" value="1" ' . checked(1, get_option('nb_sync_usd'), false) . ' />';
+    echo '<p class="description">Selecciona esta opción si deseas sincronizar los productos en USD.</p></td>';
+    echo '</tr>';
     echo '</tbody>';
     echo '</table>';
     submit_button();
@@ -119,7 +131,7 @@ function nb_options_page()
     echo '<button type="submit" class="button button-secondary" id="update-all-btn">';
     echo '<span id="update-all-text">Actualizar todo</span>';
     echo '<span id="update-all-spinner" style="display: none;">';
-    echo '<i class="fas fa-spinner fa-spin" style="font-size: 20px;"></i>';
+    echo '<i class="fas fa-spinner fa-spin" style="font-size: 20px;"></i> Sincronizando artículos...';
     echo '</span>';
     echo '</button>';
     echo '</form>';
@@ -132,6 +144,7 @@ function nb_options_page()
     }
 
     btn_update_description_products();
+    modal_confirm_update_();
 
     btn_delete_products();
     modal_confirm_delete_products();
@@ -161,6 +174,11 @@ function nb_options_page()
                         }
                     });
                 }
+            });
+
+            $("#update-all-btn").on("click", function() {
+                $("#update-all-text").hide();
+                $("#update-all-spinner").show();
             });
         });
     </script>';

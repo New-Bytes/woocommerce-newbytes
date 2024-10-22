@@ -54,6 +54,28 @@ function btn_update_description_products()
             </button>';
 }
 
+function modal_confirm_update_()
+{
+    echo '<div id="update-description-confirm-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 9999;">
+        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 400px; width: 100%;">
+            <h2>Advertencia</h2>
+            <p><strong>Esta acción reemplazará todas las descripciones de los productos pertenecientes a NewBytes. Ten en cuenta que se sobrescribirán todas las descripciones actuales.</strong></p>
+            <form id="confirm-update-description-form" style="display: inline;">
+                <input type="hidden" name="action" value="nb_update_description_products" />
+                <input type="hidden" name="update_description_all" value="1" />';
+    wp_nonce_field('nb_update_description_all', 'nb_update_description_all_nonce');
+    echo '  <button type="button" id="confirm-update-description-btn" class="button" style="background-color: #5e41de33; min-width: 130px; height: 40px; color: #52469d; border: none; padding: 5px 10px; font-weight: bold; border-radius: 5px; cursor: pointer;">
+                        Actualizar Descripciones
+                    </button>
+                    <button type="button" id="cancel-update-description" class="button" style="min-width: 130px; height: 40px; background-color: #e0e0e0; color: #333; border: none; padding: 5px 10px; font-weight: bold; border-radius: 5px; cursor: pointer;">
+                        Cancelar
+                    </button>
+                </form>
+            </div>
+        </div>';
+}
+
+
 function js_handler_modals()
 {
     echo '<script>

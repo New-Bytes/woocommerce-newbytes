@@ -91,6 +91,9 @@ function nb_callback($syncDescription = false)
         $created_count = 0;
         $categories_cache = array();
 
+        $sync_no_iva = get_option('nb_sync_no_iva');
+        $sync_usd = get_option('nb_sync_usd');
+
         foreach ($json as $row) {
             $id = null;
             $sku = $prefix . $row['sku'];
@@ -116,10 +119,13 @@ function nb_callback($syncDescription = false)
             // Si hay un ID (producto existente o nuevo)
             if ($id) {
                 try {
-                    $price = $row['price']['finalPrice'] * $row['cotizacion'];
-
-                    if (isset($row['price']['finalPriceWithUtility']) && $row['price']['finalPriceWithUtility'] > 0) {
-                        $price = $row['price']['finalPriceWithUtility'] * $row['cotizacion'];
+                    // Manejo de precios basado en las opciones de sincronización
+                    if ($sync_usd) {
+                        $price = $sync_no_iva ? $row['price']['value'] : $row['price']['finalPriceWithUtility'];
+                    } else {
+                        $price = $sync_no_iva
+                            ? $row['price']['value'] * $row['cotizacion']
+                            : $row['price']['finalPriceWithUtility'] * $row['cotizacion'];
                     }
 
                     $product = wc_get_product($id);
