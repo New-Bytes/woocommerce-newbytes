@@ -12,6 +12,10 @@ function nb_options_page()
     $latest_commit = get_latest_version_nb();
     $show_new_version_button = ($latest_commit !== VERSION_NB);
 
+    echo '<div class="wrap" style="display: flex; justify-content: center; align-items: center; height: 100%;">';
+    echo '<div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); text-align: center; max-width: 600px; width: 100%;">';
+
+    echo '<section style="width: 100%; text-align: left;">';
     if ($show_new_version_button) {
         echo '<form method="post" style="margin-top: 20px;">';
         echo '<button type="button" id="update-connector-btn" style="
@@ -41,9 +45,9 @@ function nb_options_page()
         " disabled>Actualizado: ' . VERSION_NB . '</button>';
         echo '</form>';
     }
+    echo '</section>';
 
-    echo '<div class="wrap" style="display: flex; justify-content: center; align-items: center; height: 100%;">';
-    echo '<div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); text-align: center; max-width: 600px; width: 100%;">';
+
     echo '<img src="' . esc_url($icon_url) . '" alt="Logo" style="width: 128px; height: 128px; margin-bottom: 20px;">';
     echo '<h1 style="display: flex; align-items: center; justify-content: center; gap: 10px;">Conector NewBytes</h1>';
     echo '<p>Gracias por utilizar nuestro conector de productos exclusivo de NewBytes.</p>';
@@ -145,6 +149,8 @@ function nb_options_page()
 
     btn_update_description_products();
     modal_confirm_update_();
+    modal_success_confirm_update();
+    modal_fail_confirm_update();
 
     btn_delete_products();
     modal_confirm_delete_products();

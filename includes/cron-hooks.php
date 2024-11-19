@@ -150,7 +150,14 @@ function nb_callback($syncDescription = false)
                             $description_json = json_decode($description_body, true);
 
                             if (json_last_error() === JSON_ERROR_NONE && isset($description_json['description'])) {
-                                $product->set_description($description_json['description']);
+                                $json_description = $description_json['description'];
+
+                                // Obtener descripción adicional desde la opción
+                                $additional_description = get_option('nb_description', '');
+
+                                $full_description = $additional_description . ' ' . $json_description;
+
+                                $product->set_description($full_description);
                             } else {
                                 error_log('Error en la respuesta de la descripción para el producto con SKU ' . $sku);
                             }
@@ -177,7 +184,6 @@ function nb_callback($syncDescription = false)
                     if ($category_term) {
                         $product->set_category_ids(array($category_term));
                     }
-
                     $product->set_regular_price($price);
                     $product->set_manage_stock(true);
                     $product->set_stock_quantity($row['amountStock']);
@@ -186,6 +192,14 @@ function nb_callback($syncDescription = false)
                     $product->set_width($row['widthAverage'] / 10);     // mm a cm
                     $product->set_length($row['lengthAverage'] / 10);   // mm a cm
                     $product->set_height($row['highAverage'] / 10);     // mm a cm
+                    // Agregar descripción adicional desde la opción
+                    if (!$syncDescription) {
+                        $additional_description = get_option('nb_description', '');
+                        if (!empty($additional_description)) {
+                            $product->set_description($additional_description);
+                        }
+                    }
+
                     $product->save();
 
                     # Optimización de imagen destacada

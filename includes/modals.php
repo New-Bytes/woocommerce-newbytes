@@ -68,13 +68,35 @@ function modal_confirm_update_()
                         Actualizar Descripciones
                     </button>
                     <button type="button" id="cancel-update-description" class="button" style="min-width: 130px; height: 40px; background-color: #e0e0e0; color: #333; border: none; padding: 5px 10px; font-weight: bold; border-radius: 5px; cursor: pointer;">
-                        Cancelar
+                        Cerrar
                     </button>
                 </form>
             </div>
         </div>';
 }
-
+function modal_success_confirm_update()
+{
+    echo '<div id="success-confirm-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 9999;">
+        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 400px; width: 100%;">
+            <h2>Descripciones sincronizadas con éxito</h2>
+            <button type="button" id="close-success-modal-btn" class="button" style="min-width: 130px; height: 40px; background-color: #4CAF50; color: #fff; border: none; padding: 5px 10px; font-weight: bold; border-radius: 5px; cursor: pointer;">
+                Cerrar
+            </button>
+        </div>
+    </div>';
+}
+function modal_fail_confirm_update()
+{
+    echo '<div id="fail-confirm-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 9999;">
+        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 400px; width: 100%;">
+            <h2>Error</h2>
+            <p>Hubo un problema al sincronizar las descripciones. Por favor, inténtalo de nuevo.</p>
+            <button type="button" id="close-fail-modal-btn" class="button" style="min-width: 130px; height: 40px; background-color: #f44336; color: #fff; border: none; padding: 5px 10px; font-weight: bold; border-radius: 5px; cursor: pointer;">
+                Cerrar
+            </button>
+        </div>
+    </div>';
+}
 
 function js_handler_modals()
 {
@@ -132,7 +154,8 @@ function js_handler_modals()
                 }).then(response => response.json()).then(data => {
                     if (data.success) {
                         alert("Productos eliminados exitosamente.");
-                        deleteConfirmModal.style.display = "none";
+                        //Activamos el modal successConfirmModal
+                        deleteConfirmModal.style.display = "block";
                     } else {
                         alert("Error: " + data.data);
                     }
@@ -143,12 +166,15 @@ function js_handler_modals()
         }
 
         // Manejo del modal para "Sincronizar Descripciones"
-        // Manejo del modal para "Sincronizar Descripciones"
         var updateDescriptionBtn = document.getElementById("update-description-btn");
         var updateDescriptionModal = document.getElementById("update-description-confirm-modal");
         var cancelUpdateDescriptionBtn = document.getElementById("cancel-update-description");
         var confirmUpdateDescriptionBtn = document.getElementById("confirm-update-description-btn");
+        var closeSuccessModalBtn = document.getElementById("close-success-modal-btn");
+        var closeFailModalBtn = document.getElementById("close-fail-modal-btn");
         var confirmUpdateDescriptionForm = document.getElementById("confirm-update-description-form");
+        var successConfirmModal = document.getElementById("success-confirm-modal");
+        var failConfirmModal = document.getElementById("fail-confirm-modal");
 
         if (updateDescriptionBtn && updateDescriptionModal && cancelUpdateDescriptionBtn && confirmUpdateDescriptionBtn) {
             updateDescriptionBtn.addEventListener("click", function() {
@@ -157,6 +183,14 @@ function js_handler_modals()
 
             cancelUpdateDescriptionBtn.addEventListener("click", function() {
                 updateDescriptionModal.style.display = "none";
+            });
+
+            closeSuccessModalBtn.addEventListener("click", function() {
+                successConfirmModal.style.display = "none";
+            });
+
+            closeFailModalBtn.addEventListener("click", function() {
+                failConfirmModal.style.display = "none";
             });
 
             updateDescriptionModal.addEventListener("click", function(event) {
@@ -177,10 +211,10 @@ function js_handler_modals()
                     credentials: "same-origin"
                 }).then(response => response.json()).then(data => {
                     if (data.success) {
-                        alert("Descripciones sincronizadas exitosamente.");
+                        successConfirmModal.style.display = "flex";
                         updateDescriptionModal.style.display = "none";
                     } else {
-                        alert("Error: " + data.data);
+                       failConfirmModal.style.display = "flex";
                     }
                 }).catch(error => {
                     console.error("Error:", error);
