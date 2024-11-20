@@ -219,16 +219,28 @@ function nb_callback($syncDescription = false)
                 }
             }
         }
+
+        // Calcular tiempo de ejecución
+        $end_time = microtime(true);
+        $execution_time = ($end_time - $start_time);
+
+        // Preparar mensaje de respuesta
+        return sprintf(
+            'Se actualizaron %d productos, se crearon %d productos nuevos y se eliminaron %d productos. Tiempo de ejecución: %.2f segundos.',
+            $updated_count,
+            $created_count,
+            isset($delete_result['deleted']) ? $delete_result['deleted'] : 0,
+            $execution_time
+        );
     } catch (Exception $e) {
         error_log('Error en nb_callback: ' . $e->getMessage());
+        return 'Error: ' . $e->getMessage();
     } finally {
         // Restaurar límites originales
         ini_set('max_execution_time', $original_max_execution_time);
         ini_set('memory_limit', $original_memory_limit);
 
-        // Calcular tiempo de ejecución
-        $end_time = microtime(true);
-        $execution_time = ($end_time - $start_time);
+        // Registrar tiempo de ejecución en el log
         error_log('Tiempo de ejecución de nb_callback: ' . $execution_time . ' segundos', 3, __DIR__ . '/debug-newbytes.txt');
     }
 }
