@@ -56,10 +56,13 @@ function nb_update_description_products()
     check_ajax_referer('nb_update_description_all', 'nb_update_description_all_nonce');
 
     // Llama al callback con la bandera $syncDescription en true
-    nb_callback(true);
+    $result = nb_callback(true);
 
-    // Respuesta exitosa en formato JSON
-    wp_send_json_success('Descripciones sincronizadas correctamente.');
+    if (isset($result['success']) && $result['success']) {
+        wp_send_json_success($result);
+    } else {
+        wp_send_json_error(isset($result['error']) ? $result['error'] : 'Error desconocido durante la sincronización.');
+    }
 }
 
 add_action('wp_ajax_nb_update_description_products', 'nb_update_description_products');

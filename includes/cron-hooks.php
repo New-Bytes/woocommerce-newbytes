@@ -224,22 +224,26 @@ function nb_callback($syncDescription = false)
         $end_time = microtime(true);
         $execution_time = ($end_time - $start_time);
 
-        // Preparar mensaje de respuesta
-        return sprintf(
-            'Se actualizaron %d productos, se crearon %d productos nuevos y se eliminaron %d productos. Tiempo de ejecución: %.2f segundos.',
-            $updated_count,
-            $created_count,
-            isset($delete_result['deleted']) ? $delete_result['deleted'] : 0,
-            $execution_time
+        // Actualizar la fecha de última actualización
+        update_option('nb_last_update', current_time('mysql'));
+
+        // Restaurar límites originales
+        ini_set('max_execution_time', $original_max_execution_time);
+        ini_set('memory_limit', $original_memory_limit);
+
+        return array(
+            'success' => true,
+            'message' => 'Sincronización completada',
+            'stats' => array(
+                'created' => $created_count,
+                'updated' => $updated_count,
+                'deleted' => isset($delete_result['deleted']) ? $delete_result['deleted'] : 0
+            )
         );
     } catch (Exception $e) {
         error_log('Error en nb_callback: ' . $e->getMessage());
         return 'Error: ' . $e->getMessage();
     } finally {
-        // Restaurar límites originales
-        ini_set('max_execution_time', $original_max_execution_time);
-        ini_set('memory_limit', $original_memory_limit);
-
         // Registrar tiempo de ejecución en el log
         error_log('Tiempo de ejecución de nb_callback: ' . $execution_time . ' segundos', 3, __DIR__ . '/debug-newbytes.txt');
     }

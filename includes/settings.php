@@ -49,7 +49,7 @@ function nb_options_page()
 
 
     echo '<img src="' . esc_url($icon_url) . '" alt="Logo" style="width: 128px; height: 128px; margin-bottom: 20px;">';
-    echo '<h1 style="display: flex; align-items: center; justify-content: center; gap: 10px;">Conector NewBytes</h1>';
+    echo '<h1 style="display: flex; align-items: center; justify-content: center; gap: 10px;">Conector New Bytes</h1>';
     echo '<p>Gracias por utilizar nuestro conector de productos exclusivo de NewBytes.</p>';
     echo '<p>Si no tienes credenciales, puedes visitar la <a href="https://developers.nb.com.ar/" target="_blank">documentación oficial de NewBytes</a>.</p>';
     if (!is_plugin_active('featured-image-from-url/featured-image-from-url.php')) {
@@ -141,19 +141,59 @@ function nb_options_page()
     echo '</form>';
 
     if (isset($_POST['update_all'])) {
-        echo '<p><details><summary><strong>Respuesta del conector NB</strong></summary>';
-        echo '<ul>' . nb_callback() . '</ul>';
-        echo '</details></p>';
-        nb_show_last_update();
+        $response = nb_callback();
+        if (isset($response['success']) && $response['success']) {
+            echo '<div class="notice notice-success is-dismissible" style="margin: 20px 0; padding: 12px; border-left-color: #46b450;">
+                    <h3 style="margin: 0 0 10px; color: #2c3338;">
+                        <span class="dashicons dashicons-yes-alt" style="color: #46b450; font-size: 24px; width: 24px; height: 24px; margin-right: 10px;"></span>
+                        Sincronización completada.
+                    <div style="background: #f8f9fa; border-radius: 4px; padding: 15px; margin: 10px 0;">
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
+                            <div style="padding: 10px; background: #fff; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                <span class="dashicons dashicons-plus" style="color: #46b450; font-size: 20px;"></span>
+                                <h4 style="margin: 5px 0; color: #1d2327;">Creados</h4>
+                                <span style="font-size: 24px; font-weight: bold; color: #46b450;">' . $response['stats']['created'] . '</span>
+                            </div>
+                            <div style="padding: 10px; background: #fff; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                <span class="dashicons dashicons-update" style="color: #007cba; font-size: 20px;"></span>
+                                <h4 style="margin: 5px 0; color: #1d2327;">Actualizados</h4>
+                                <span style="font-size: 24px; font-weight: bold; color: #007cba;">' . $response['stats']['updated'] . '</span>
+                            </div>
+                            <div style="padding: 10px; background: #fff; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                <span class="dashicons dashicons-trash" style="color: #dc3232; font-size: 20px;"></span>
+                                <h4 style="margin: 5px 0; color: #1d2327;">Eliminados</h4>
+                                <span style="font-size: 24px; font-weight: bold; color: #dc3232;">' . (isset($response['stats']['deleted']) ? $response['stats']['deleted'] : '0') . '</span>
+                            </div>
+                        </div>
+                        <p style="margin: 15px 0 5px; text-align: right; color: #646970;">
+                            <span class="dashicons dashicons-clock" style="font-size: 16px; margin-right: 5px;"></span>';
+            nb_show_last_update();
+            echo '</p>
+                    </div>
+                </div>';
+        } else {
+            echo '<div class="notice notice-error is-dismissible" style="margin: 20px 0; padding: 12px;">
+                    <h3 style="margin: 0 0 10px; color: #2c3338;">
+                        <span class="dashicons dashicons-warning" style="color: #dc3232; font-size: 24px; width: 24px; height: 24px; margin-right: 10px;"></span>
+                        Error en la Sincronización
+                    </h3>
+                    <p style="margin: 0; padding: 10px; background: #fff; border-radius: 4px;">' .
+                (isset($response['error']) ? esc_html($response['error']) : 'Error desconocido durante la sincronización.') .
+                '</p>
+                </div>';
+        }
     }
 
     btn_update_description_products();
+    btn_delete_products();
+
+    // Agregar los modales al DOM
+    modal_confirm_delete_products();
     modal_confirm_update_();
     modal_success_confirm_update();
     modal_fail_confirm_update();
 
-    btn_delete_products();
-    modal_confirm_delete_products();
+    // Agregar el manejador de JavaScript
     js_handler_modals();
 
     echo '<script>
