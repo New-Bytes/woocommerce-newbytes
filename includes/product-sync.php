@@ -6,35 +6,56 @@ function nb_delete_products_by_prefix($existing_skus, $prefix)
 
     try {
         $start_time = microtime(true); // Tiempo de inicio del proceso
+        $deleted_count = 0;
 
-        // Escapar los SKUs existentes para la consulta
-        $escaped_skus = array_map(function ($sku) use ($wpdb) {
-            return $wpdb->prepare('%s', $sku);
-        }, $existing_skus);
-        $escaped_skus_list = implode(',', $escaped_skus);
+        // Verificar que el prefijo no esté vacío
+        if (empty($prefix)) {
+            error_log("Error: Prefijo vacío en nb_delete_products_by_prefix");
+            return array('error' => 'Prefijo vacío', 'deleted' => 0);
+        }
 
-        // Eliminar productos con el prefijo especificado que no están en la lista de SKUs existentes
-        $deleted_count = $wpdb->query(
-            $wpdb->prepare(
-                "DELETE FROM {$wpdb->posts} 
-                 WHERE post_type = 'product' 
-                 AND post_status = 'publish' 
-                 AND ID IN (
-                     SELECT post_id FROM {$wpdb->postmeta} 
-                     WHERE meta_key = '_sku' 
-                     AND meta_value REGEXP %s
-                     AND meta_value NOT IN ({$escaped_skus_list})
-                 )",
-                '^' . $prefix
-            )
+        // Obtener todos los productos con el prefijo especificado
+        $query = $wpdb->prepare(
+            "SELECT p.ID, pm.meta_value as sku 
+             FROM {$wpdb->posts} p
+             JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+             WHERE p.post_type = 'product'
+             AND p.post_status = 'publish'
+             AND pm.meta_key = '_sku'
+             AND pm.meta_value LIKE %s",
+            $prefix . '%'
         );
+
+        $products = $wpdb->get_results($query);
+
+        if (!empty($products)) {
+            error_log("Encontrados " . count($products) . " productos con prefijo $prefix");
+
+            foreach ($products as $product) {
+                // Si el SKU no está en la lista de SKUs a mantener, eliminar el producto
+                if (!in_array($product->sku, $existing_skus)) {
+                    // Usar wp_delete_post para eliminar correctamente el producto y sus metadatos
+                    $result = wp_delete_post($product->ID, true); // true para forzar la eliminación
+
+                    if ($result) {
+                        $deleted_count++;
+                        error_log("Producto eliminado: ID {$product->ID}, SKU {$product->sku}");
+                    } else {
+                        error_log("Error al eliminar producto: ID {$product->ID}, SKU {$product->sku}");
+                    }
+                }
+            }
+        } else {
+            error_log("No se encontraron productos con el prefijo $prefix");
+        }
 
         $end_time = microtime(true); // Tiempo de finalización del proceso
         $sync_duration = $end_time - $start_time;
 
+        // Convertir a enteros para evitar advertencias de conversión implícita
         $hours = floor($sync_duration / 3600);
-        $minutes = floor(($sync_duration % 3600) / 60);
-        $seconds = $sync_duration % 60;
+        $minutes = floor(($sync_duration - ($hours * 3600)) / 60);
+        $seconds = $sync_duration - ($hours * 3600) - ($minutes * 60);
 
         return array(
             'deleted' => $deleted_count,

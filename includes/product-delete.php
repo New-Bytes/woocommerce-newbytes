@@ -40,9 +40,10 @@ function nb_delete_products()
         $end_time      = microtime(true); // Tiempo de finalización del proceso
         $sync_duration = $end_time - $start_time;
 
+        // Convertir a enteros para evitar advertencias de conversión implícita
         $hours   = floor($sync_duration / 3600);
-        $minutes = floor(($sync_duration % 3600) / 60);
-        $seconds = $sync_duration % 60;
+        $minutes = floor(($sync_duration - ($hours * 3600)) / 60);
+        $seconds = $sync_duration - ($hours * 3600) - ($minutes * 60);
 
         $response_data = array(
             'deleted'       => $deleted_count,
