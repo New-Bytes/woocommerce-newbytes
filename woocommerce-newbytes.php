@@ -8,7 +8,7 @@ Version: 0.1.5
 */
 
 // remover usar prod
-define('API_URL_NB', 'https://gamma.api.nb.com.ar/v1');
+define('API_URL_NB', 'https://api.nb.com.ar/v1');
 define('VERSION_NB', '0.1.5');
 
 // Incluye los archivos necesarios
