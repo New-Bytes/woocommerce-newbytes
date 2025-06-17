@@ -2,61 +2,31 @@
 
 function modal_confirm_delete_products()
 {
-    echo '<div id="delete-confirm-modal" style="
-        display: none; 
-        position: fixed; 
-        top: 0; 
-        left: 0; 
-        width: 100vw; 
-        height: 100vh; 
-        background: rgba(0,0,0,0.5); 
-        z-index: 99999;
-        display: none;
-        align-items: center;
-        justify-content: center;">
-        <div style="
-            background: white; 
-            padding: 30px; 
-            border-radius: 10px; 
-            text-align: center; 
-            max-width: 400px; 
-            width: 90%;
-            margin: auto;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-            <h2 style="margin-top: 0; color: #23282d;">Advertencia</h2>
-            <p style="margin: 15px 0;">Esta acción eliminará todos los productos de New Bytes.</p>
+    echo '<div id="delete-confirm-modal" class="hidden fixed inset-0 bg-gray-800/70 backdrop-blur-sm flex justify-center items-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-lg text-center max-w-md w-full mx-4">
+            <div class="flex justify-center mb-4">
+                <svg class="h-12 w-12 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <h2 class="text-xl font-semibold text-gray-800 mb-2">Advertencia</h2>
+            <p class="text-gray-600 mb-4">Esta acción eliminará todos los productos de New Bytes.</p>
             <form id="confirm-delete-form">
                 <input type="hidden" name="action" value="nb_delete_products" />
                 <input type="hidden" name="delete_all" value="1" />';
     wp_nonce_field('nb_delete_all', 'nb_delete_all_nonce');
-    echo '      <div style="margin-top: 20px;">
-                    <button type="button" id="confirm-delete-btn" class="button" style="
-                        background-color: #f55a39;
-                        min-width: 130px;
-                        height: 40px;
-                        color: #fff;
-                        border: none;
-                        padding: 5px 20px;
-                        font-weight: bold;
-                        border-radius: 5px;
-                        cursor: pointer;
-                        margin-right: 10px;
-                        transition: background-color 0.2s;">
-                            Eliminar
+    echo '      <div class="flex justify-center space-x-4 mt-6">
+                    <button type="button" id="confirm-delete-btn" class="inline-flex items-center justify-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-lg text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 transition-all duration-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                        Eliminar
                     </button>
-                    <button type="button" id="cancel-delete" class="button"
-                        style="
-                        min-width: 130px;
-                        height: 40px;
-                        background-color: #e0e0e0;
-                        color: #333;
-                        border: none;
-                        padding: 5px 20px;
-                        font-weight: bold;
-                        border-radius: 5px;
-                        cursor: pointer;
-                        transition: background-color 0.2s;">
-                            Cancelar
+                    <button type="button" id="cancel-delete" class="inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition-all duration-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                        Cancelar
                     </button>
                 </div>
             </form>
@@ -66,44 +36,68 @@ function modal_confirm_delete_products()
 
 function btn_delete_products()
 {
-    echo '<button type="button" class="button button-secondary" id="delete-all-btn" style="margin-top: 20px; border: none; background-color: #f55a39; color: #fff;">
+    echo '<button type="button" id="delete-all-btn" class="inline-flex items-center px-5 py-2.5 mt-4 border border-red-200 shadow-sm text-sm font-medium rounded-lg text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 transition-all duration-200">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+        </svg>
         Eliminar Productos
     </button>';
 }
 
 function btn_update_description_products()
 {
-    echo '<button type="button" class="button button-secondary" id="update-description-btn" style="margin-top: 20px; margin-right:20px; border: none; background-color: #5e41de33; color: #52469d;">
+    echo '<button type="button" id="update-description-btn" class="inline-flex items-center px-5 py-2.5 mt-4 mr-4 border border-indigo-200 shadow-sm text-sm font-medium rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 transition-all duration-200">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
+        </svg>
         Sincronizar Descripciones
-            </button>';
+    </button>';
 }
 
 function modal_confirm_update_()
 {
-    echo '<div id="update-description-confirm-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 9999;">
-        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 400px; width: 100%;">
-            <h2>Advertencia</h2>
-            <p><strong>Esta acción reemplazará todas las descripciones de los productos pertenecientes a NewBytes. Ten en cuenta que se sobrescribirán todas las descripciones actuales.</strong></p>
-            <form id="confirm-update-description-form" style="display: inline;">
+    echo '<div id="update-description-confirm-modal" class="hidden fixed inset-0 bg-gray-800/70 backdrop-blur-sm flex justify-center items-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-lg text-center max-w-md w-full mx-4">
+            <div class="flex justify-center mb-4">
+                <svg class="h-12 w-12 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <h2 class="text-xl font-semibold text-gray-800 mb-2">Advertencia</h2>
+            <p class="text-gray-600 mb-4"><strong>Esta acción reemplazará todas las descripciones de los productos pertenecientes a NewBytes. Ten en cuenta que se sobrescribirán todas las descripciones actuales.</strong></p>
+            <form id="confirm-update-description-form" class="inline-block">
                 <input type="hidden" name="action" value="nb_update_description_products" />
                 <input type="hidden" name="update_description_all" value="1" />';
     wp_nonce_field('nb_update_description_all', 'nb_update_description_all_nonce');
-    echo '  <button type="button" id="confirm-update-description-btn" class="button" style="background-color: #5e41de33; min-width: 130px; height: 40px; color: #52469d; border: none; padding: 5px 10px; font-weight: bold; border-radius: 5px; cursor: pointer;">
-                        Actualizar Descripciones
-                    </button>
-                    <button type="button" id="cancel-update-description" class="button" style="min-width: 130px; height: 40px; background-color: #e0e0e0; color: #333; border: none; padding: 5px 10px; font-weight: bold; border-radius: 5px; cursor: pointer;">
-                        Cerrar
-                    </button>
-                </form>
+    echo '  <div class="flex justify-center space-x-4 mt-6">
+                <button type="button" id="confirm-update-description-btn" class="inline-flex items-center justify-center px-5 py-2.5 border border-indigo-200 text-sm font-medium rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 transition-all duration-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
+                    </svg>
+                    Actualizar Descripciones
+                </button>
+                <button type="button" id="cancel-update-description" class="inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition-all duration-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                    Cerrar
+                </button>
             </div>
-        </div>';
+        </form>
+    </div>
+</div>';
 }
 function modal_success_confirm_update()
 {
-    echo '<div id="success-confirm-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 9999;">
-        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 400px; width: 100%;">
-            <h2>Descripciones sincronizadas con éxito</h2>
-            <button type="button" id="close-success-modal-btn" class="button" style="min-width: 130px; height: 40px; background-color: #4CAF50; color: #fff; border: none; padding: 5px 10px; font-weight: bold; border-radius: 5px; cursor: pointer;">
+    echo '<div id="success-confirm-modal" class="hidden fixed inset-0 bg-gray-800/70 backdrop-blur-sm flex justify-center items-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-lg text-center max-w-md w-full mx-4">
+            <div class="flex justify-center mb-4">
+                <svg class="h-12 w-12 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Descripciones sincronizadas con éxito</h2>
+            <button type="button" id="close-success-modal-btn" class="inline-flex items-center justify-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-lg text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 transition-all duration-200">
                 Cerrar
             </button>
         </div>
@@ -111,11 +105,16 @@ function modal_success_confirm_update()
 }
 function modal_fail_confirm_update()
 {
-    echo '<div id="fail-confirm-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 9999;">
-        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 400px; width: 100%;">
-            <h2>Error</h2>
-            <p>Hubo un problema al sincronizar las descripciones. Por favor, inténtalo de nuevo.</p>
-            <button type="button" id="close-fail-modal-btn" class="button" style="min-width: 130px; height: 40px; background-color: #f44336; color: #fff; border: none; padding: 5px 10px; font-weight: bold; border-radius: 5px; cursor: pointer;">
+    echo '<div id="fail-confirm-modal" class="hidden fixed inset-0 bg-gray-800/70 backdrop-blur-sm flex justify-center items-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-lg text-center max-w-md w-full mx-4">
+            <div class="flex justify-center mb-4">
+                <svg class="h-12 w-12 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <h2 class="text-xl font-semibold text-gray-800 mb-2">Error al sincronizar descripciones</h2>
+            <p class="text-gray-600 mb-4">Hubo un problema al sincronizar las descripciones. Por favor, inténtalo de nuevo.</p>
+            <button type="button" id="close-fail-modal-btn" class="inline-flex items-center justify-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-lg text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 transition-all duration-200">
                 Cerrar
             </button>
         </div>
@@ -136,16 +135,19 @@ function js_handler_modals()
 
         if (updateConnectorBtn && updateConnectorModal && closeModalBtn) {
             updateConnectorBtn.addEventListener("click", function() {
-                updateConnectorModal.style.display = "flex";
+                updateConnectorModal.classList.remove("hidden");
+                updateConnectorModal.classList.add("flex");
             });
 
             closeModalBtn.addEventListener("click", function() {
-                updateConnectorModal.style.display = "none";
+                updateConnectorModal.classList.add("hidden");
+                updateConnectorModal.classList.remove("flex");
             });
 
             updateConnectorModal.addEventListener("click", function(event) {
                 if (event.target === this) {
-                    updateConnectorModal.style.display = "none";
+                    updateConnectorModal.classList.add("hidden");
+                    updateConnectorModal.classList.remove("flex");
                 }
             });
         }
@@ -170,18 +172,21 @@ function js_handler_modals()
             
             deleteAllBtn.addEventListener("click", function() {
                 console.log("Botón eliminar clickeado");
-                deleteConfirmModal.style.display = "flex";
+                deleteConfirmModal.classList.remove("hidden");
+                deleteConfirmModal.classList.add("flex");
             });
 
             cancelDeleteBtn.addEventListener("click", function() {
-                console.log("Botón cancelar clickeado");
-                deleteConfirmModal.style.display = "none";
+                console.log("Cancelar eliminación clickeado");
+                deleteConfirmModal.classList.add("hidden");
+                deleteConfirmModal.classList.remove("flex");
             });
 
             deleteConfirmModal.addEventListener("click", function(event) {
                 if (event.target === this) {
                     console.log("Click fuera del modal");
-                    deleteConfirmModal.style.display = "none";
+                    deleteConfirmModal.classList.add("hidden");
+                    deleteConfirmModal.classList.remove("flex");
                 }
             });
 
@@ -199,15 +204,19 @@ function js_handler_modals()
                         
                         // Mostrar mensaje de éxito
                         const successMessage = document.createElement("div");
-                        successMessage.className = "notice notice-success is-dismissible";
-                        successMessage.style.margin = "20px 0";
-                        successMessage.style.padding = "12px";
+                        successMessage.className = "mb-6 mt-4 p-4 bg-green-50 border border-green-200 rounded-lg";
                         successMessage.innerHTML = `
-                            <h3 style="margin: 0 0 10px; color: #2c3338;">
-                                <span class="dashicons dashicons-yes-alt" style="color: #46b450; font-size: 24px; width: 24px; height: 24px; margin-right: 10px;"></span>
-                                Productos eliminados exitosamente
-                            </h3>
-                            <p>Se han eliminado correctamente todos los productos de NewBytes.</p>
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div class="ml-3">
+                                    <h3 class="text-lg font-medium text-green-800">Productos eliminados exitosamente</h3>
+                                    <p class="mt-2 text-sm text-green-700">Se han eliminado correctamente todos los productos de NewBytes.</p>
+                                </div>
+                            </div>
                         `;
                         
                         // Insertar el mensaje después del botón de eliminar
@@ -222,19 +231,24 @@ function js_handler_modals()
                         }
                     } else {
                         // Ocultar el modal de confirmación
-                        deleteConfirmModal.style.display = "none";
+                        deleteConfirmModal.classList.add("hidden");
+                        deleteConfirmModal.classList.remove("flex");
                         
                         // Mostrar mensaje de error
                         const errorMessage = document.createElement("div");
-                        errorMessage.className = "notice notice-error is-dismissible";
-                        errorMessage.style.margin = "20px 0";
-                        errorMessage.style.padding = "12px";
+                        errorMessage.className = "mb-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg";
                         errorMessage.innerHTML = `
-                            <h3 style="margin: 0 0 10px; color: #2c3338;">
-                                <span class="dashicons dashicons-warning" style="color: #dc3232; font-size: 24px; width: 24px; height: 24px; margin-right: 10px;"></span>
-                                Error al eliminar productos
-                            </h3>
-                            <p>\${data.data || "Error desconocido al eliminar los productos."}</p>
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div class="ml-3">
+                                    <h3 class="text-lg font-medium text-red-800">Error al eliminar productos</h3>
+                                    <p class="mt-2 text-sm text-red-700">\${data.data || "Error desconocido al eliminar los productos."}</p>
+                                </div>
+                            </div>
                         `;
                         
                         // Insertar el mensaje de error después del botón de eliminar
@@ -246,10 +260,36 @@ function js_handler_modals()
                 }).catch(error => {
                     console.error("Error:", error);
                     // Ocultar el modal de confirmación
-                    deleteConfirmModal.style.display = "none";
+                    deleteConfirmModal.classList.add("hidden");
+                    deleteConfirmModal.classList.remove("flex");
                     
-                    // Mostrar mensaje de error
-                    alert("Error al procesar la solicitud. Por favor, inténtalo de nuevo.");
+                    // Mostrar mensaje de error con Tailwind CSS
+                    const errorMessage = document.createElement("div");
+                    errorMessage.className = "mb-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg";
+                    errorMessage.innerHTML = `
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-lg font-medium text-red-800">Error al procesar la solicitud</h3>
+                                <p class="mt-2 text-sm text-red-700">Por favor, inténtalo de nuevo más tarde.</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Insertar el mensaje de error después del botón de eliminar
+                    const deleteButton = document.getElementById("delete-all-btn");
+                    if (deleteButton && deleteButton.parentNode) {
+                        deleteButton.parentNode.insertBefore(errorMessage, deleteButton.nextSibling);
+                        
+                        // Remover el mensaje después de 5 segundos
+                        setTimeout(() => {
+                            errorMessage.remove();
+                        }, 5000);
+                    }
                 });
             });
         }
@@ -267,30 +307,41 @@ function js_handler_modals()
 
         if (updateDescriptionBtn && updateDescriptionModal && cancelUpdateDescriptionBtn && confirmUpdateDescriptionBtn) {
             updateDescriptionBtn.addEventListener("click", function() {
-                updateDescriptionModal.style.display = "flex";
+                updateDescriptionModal.classList.remove("hidden");
+                updateDescriptionModal.classList.add("flex");
             });
 
             cancelUpdateDescriptionBtn.addEventListener("click", function() {
-                updateDescriptionModal.style.display = "none";
+                updateDescriptionModal.classList.add("hidden");
+                updateDescriptionModal.classList.remove("flex");
             });
 
             closeSuccessModalBtn.addEventListener("click", function() {
-                successConfirmModal.style.display = "none";
+                successConfirmModal.classList.add("hidden");
+                successConfirmModal.classList.remove("flex");
             });
 
             closeFailModalBtn.addEventListener("click", function() {
-                failConfirmModal.style.display = "none";
+                failConfirmModal.classList.add("hidden");
+                failConfirmModal.classList.remove("flex");
             });
 
             updateDescriptionModal.addEventListener("click", function(event) {
                 if (event.target === this) {
-                    updateDescriptionModal.style.display = "none";
+                    updateDescriptionModal.classList.add("hidden");
+                    updateDescriptionModal.classList.remove("flex");
                 }
             });
 
             confirmUpdateDescriptionBtn.addEventListener("click", function() {
-                // Cambiar el texto del botón al spinner de FontAwesome y deshabilitarlo
-                confirmUpdateDescriptionBtn.innerHTML = \'<i class="fas fa-spinner fa-spin"></i> Procesando...\';
+                // Cambiar el texto del botón al spinner de Tailwind CSS y deshabilitarlo
+                confirmUpdateDescriptionBtn.innerHTML = `
+                    <svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-indigo-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Procesando...
+                `;
                 confirmUpdateDescriptionBtn.disabled = true;
 
                 var formData = new FormData(confirmUpdateDescriptionForm);
@@ -307,16 +358,26 @@ function js_handler_modals()
                         const successModalContent = document.querySelector("#success-confirm-modal div");
                         if (successModalContent) {
                             successModalContent.innerHTML = `
-                                <h2>Sincronización completada con éxito</h2>
-                                <p>${successMessage}</p>
-                                <button type="button" id="close-success-modal-btn" class="button" style="min-width: 130px; height: 40px; background-color: #4CAF50; color: #fff; border: none; padding: 5px 10px; font-weight: bold; border-radius: 5px; cursor: pointer;">
+                                <div class="flex justify-center mb-4">
+                                    <svg class="h-12 w-12 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <h2 class="text-xl font-semibold text-gray-800 mb-2">Sincronización completada con éxito</h2>
+                                <p class="text-gray-600 mb-4">${successMessage}</p>
+                                <button type="button" id="close-success-modal-btn" class="inline-flex items-center justify-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-lg text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 transition-all duration-200">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                    </svg>
                                     Cerrar
                                 </button>
                             `;
                         }
                         
-                        successConfirmModal.style.display = "flex";
-                        updateDescriptionModal.style.display = "none";
+                        successConfirmModal.classList.remove("hidden");
+                        successConfirmModal.classList.add("flex");
+                        updateDescriptionModal.classList.add("hidden");
+                        updateDescriptionModal.classList.remove("flex");
                         
                         // Actualizar la fecha de última actualización en la interfaz
                         const lastUpdateElement = document.getElementById("last_update");
@@ -334,17 +395,24 @@ function js_handler_modals()
                         const newCloseBtn = document.getElementById("close-success-modal-btn");
                         if (newCloseBtn) {
                             newCloseBtn.addEventListener("click", function() {
-                                successConfirmModal.style.display = "none";
+                                successConfirmModal.classList.add("hidden");
+                                successConfirmModal.classList.remove("flex");
                             });
                         }
                     } else {
-                        failConfirmModal.style.display = "flex";
+                        failConfirmModal.classList.remove("hidden");
+                        failConfirmModal.classList.add("flex");
                     }
                 }).catch(error => {
                     console.error("Error:", error);
                 }).finally(() => {
                     // Restaurar el texto del botón y habilitarlo
-                    confirmUpdateDescriptionBtn.innerHTML = "Actualizar Descripciones";
+                    confirmUpdateDescriptionBtn.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
+                        </svg>
+                        Actualizar Descripciones
+                    `;
                     confirmUpdateDescriptionBtn.disabled = false;
                 });
             });

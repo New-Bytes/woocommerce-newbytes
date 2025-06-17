@@ -169,20 +169,38 @@ function nb_callback($syncDescription = false)
                     // Manejo de categoría del usuario o categoría original de la API
                     $category_to_use = !empty($row['categoryDescriptionUser']) ? $row['categoryDescriptionUser'] : $row['category'];
 
-                    if (!isset($categories_cache[$category_to_use])) {
-                        $category_term = term_exists($category_to_use, 'product_cat');
-                        if (!$category_term && !is_numeric($category_to_use)) {
-                            if ($category_to_use != '') {
+                    // Solo proceder si hay una categoría para usar
+                    if (!empty($category_to_use)) {
+                        // Verificar si ya tenemos esta categoría en caché
+                        if (!isset($categories_cache[$category_to_use])) {
+                            // Verificar si la categoría ya existe
+                            $category_term = term_exists($category_to_use, 'product_cat');
+
+                            // Si la categoría no existe, crearla
+                            if (!$category_term) {
                                 $category_term = wp_insert_term($category_to_use, 'product_cat');
+
+                                // Verificar si hubo un error al crear la categoría
+                                if (is_wp_error($category_term)) {
+                                    error_log('Error al crear la categoría "' . $category_to_use . '": ' . $category_term->get_error_message());
+                                    $categories_cache[$category_to_use] = null;
+                                } else {
+                                    $categories_cache[$category_to_use] = $category_term['term_id'];
+                                }
+                            } else {
+                                // La categoría existe, guardar su ID en caché
+                                $categories_cache[$category_to_use] = $category_term['term_id'];
                             }
                         }
-                        $categories_cache[$category_to_use] = $category_term ? $category_term['term_id'] : null;
-                    } else {
-                        $category_term = $categories_cache[$category_to_use];
-                    }
 
-                    if ($category_term) {
-                        $product->set_category_ids(array($category_term));
+                        // Asignar la categoría al producto si tenemos un ID válido
+                        if (!empty($categories_cache[$category_to_use])) {
+                            $product->set_category_ids(array($categories_cache[$category_to_use]));
+                        } else {
+                            error_log('No se pudo asignar la categoría "' . $category_to_use . '" al producto con SKU ' . $sku);
+                        }
+                    } else {
+                        error_log('El producto con SKU ' . $sku . ' no tiene categoría definida');
                     }
                     $product->set_regular_price($price);
                     $product->set_manage_stock(true);
