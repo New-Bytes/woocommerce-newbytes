@@ -75,6 +75,14 @@ function nb_callback($syncDescription = false)
             return;
         }
 
+        // Crear log JSON con los datos de la API antes de procesar
+        $sync_type = $syncDescription ? 'description' : 'auto';
+        if (wp_doing_cron()) {
+            $sync_type = 'auto';
+        } elseif (isset($_POST['update_all']) || (isset($_POST['action']) && $_POST['action'] === 'nb_update_description_products')) {
+            $sync_type = 'manual';
+        }
+
         // Obtener todos los SKUs existentes de WooCommerce con el prefijo especificado
         $prefix = get_option('nb_prefix');
         $existing_skus = array();
@@ -245,6 +253,16 @@ function nb_callback($syncDescription = false)
         // Actualizar la fecha de última actualización
         update_option('nb_last_update', current_time('mysql'));
 
+        // Preparar estadísticas finales
+        $final_stats = array(
+            'created' => $created_count,
+            'updated' => $updated_count,
+            'deleted' => isset($delete_result['deleted']) ? $delete_result['deleted'] : 0
+        );
+
+        // Crear log JSON con los datos completos y estadísticas
+        NB_Logs_Manager::create_log($json, $final_stats, $sync_type);
+
         // Restaurar límites originales
         ini_set('max_execution_time', $original_max_execution_time);
         ini_set('memory_limit', $original_memory_limit);
@@ -252,11 +270,7 @@ function nb_callback($syncDescription = false)
         return array(
             'success' => true,
             'message' => 'Sincronización completada',
-            'stats' => array(
-                'created' => $created_count,
-                'updated' => $updated_count,
-                'deleted' => isset($delete_result['deleted']) ? $delete_result['deleted'] : 0
-            )
+            'stats' => $final_stats
         );
     } catch (Exception $e) {
         error_log('Error en nb_callback: ' . $e->getMessage());

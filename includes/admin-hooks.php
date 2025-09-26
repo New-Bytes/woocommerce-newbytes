@@ -10,6 +10,7 @@ function nb_plugin_action_links($links)
 function nb_menu()
 {
     add_options_page('Conector NB', 'Conector NB', 'manage_options', 'nb', 'nb_options_page');
+    add_management_page('NewBytes Logs', 'NewBytes Logs', 'manage_options', 'nb-logs', 'nb_logs_page');
 }
 
 function nb_register_settings()
