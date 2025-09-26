@@ -16,7 +16,7 @@ function nb_options_page()
     $icon_url = $plugin_url . '../assets/icon-128x128.png';
 
     $latest_commit = get_latest_version_nb();
-    $show_new_version_button = ($latest_commit !== VERSION_NB);
+    $show_new_version_button = ($latest_commit > VERSION_NB);
 
     echo '<div class="wrap bg-gray-100 p-6 flex justify-center items-center h-full">';
     echo '<div class="bg-white p-8 rounded-lg shadow-md text-center max-w-2xl w-full">';
@@ -94,21 +94,24 @@ function nb_options_page()
     $server_time_formatted = date('Y-m-d H:i:s', $server_time);
     $server_timezone = date_default_timezone_get();
 
-    // Obtener zona horaria de WordPress
-    $wp_timezone = wp_timezone();
-    $wp_timezone_string = wp_timezone_string();
-    $wp_time_formatted = wp_date('Y-m-d H:i:s', $server_time);
+    // Obtener zona horaria de WordPress (con compatibilidad)
+    $wp_timezone = function_exists('wp_timezone') ? wp_timezone() : null;
+    $wp_timezone_string = function_exists('wp_timezone_string') ? wp_timezone_string() : get_option('timezone_string', 'UTC');
+    $wp_time_formatted = function_exists('wp_date') ? wp_date('Y-m-d H:i:s', $server_time) : date('Y-m-d H:i:s', $server_time);
 
     // Obtener hora de la base de datos
-    $db_time = $wpdb->get_var("SELECT NOW()");
+    $db_time = ($wpdb && is_object($wpdb)) ? $wpdb->get_var("SELECT NOW()") : 'N/A';
 
     // Obtener información del cron
-    $cron_array = _get_cron_array();
+    $cron_array = function_exists('_get_cron_array') ? _get_cron_array() : array();
     $interval = intval(get_option('nb_sync_interval', 3600));
     $interval_minutes = $interval / 60;
 
     // Buscar el próximo evento de sincronización
     $next_sync = wp_next_scheduled('nb_cron_sync_event');
+    if (!$next_sync) {
+        $next_sync = time() + $interval; // Fallback si no hay evento programado
+    }
     $now = time();
     $time_diff = $next_sync - $now;
 
@@ -371,7 +374,7 @@ function nb_options_page()
     echo '<p class="text-xs text-gray-500 mt-2 text-center">Selecciona esta opción si deseas sincronizar los productos en USD.</p>';
     echo '</div>';
     echo '<div class="mt-8">';
-    echo '<button type="submit" class="w-full inline-flex justify-center py-3 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 transition-all duration-200">';
+    echo '<button type="submit" class="w-full inline-flex justify-center py-3 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-all duration-200">';
     echo '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">';
     echo '</svg>';
     echo 'Guardar cambios';
@@ -379,19 +382,36 @@ function nb_options_page()
     echo '</div>';
     echo '</form>';
 
-    // Botón de Actualizar todo
+    // Sección de Herramientas y Acciones
     echo '<div class="mt-8 border-t border-gray-200 pt-6">';
-    echo '<form method="post" class="text-center mb-6">';
-    echo '<p class="text-sm text-gray-600 mb-4 text-center">Si cambiaste los markups o realizaste algún ajuste, puedes resincronizar todos los productos:</p>';
+    echo '<div class="text-center mb-6">';
+    echo '<h3 class="text-lg font-medium text-gray-900 mb-2">Herramientas y Acciones</h3>';
+    echo '<p class="text-sm text-gray-600">Gestiona tus productos y consulta el historial de sincronizaciones</p>';
+    echo '</div>';
+
+    // Primera fila: Botón de logs (destacado)
+    echo '<div class="mb-6 text-center">';
+    echo '<a href="' . admin_url('tools.php?page=nb-logs') . '" class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white hover:text-white text-sm font-medium rounded-lg shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 transition-all duration-200 no-underline">';
+    echo '<svg class="w-5 h-5 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
+    echo '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>';
+    echo '</svg>';
+    echo '<span class="text-white">Ver Registro de Sincronizaciones</span>';
+    echo '</a>';
+    echo '<p class="text-xs text-gray-500 mt-2">Consulta el historial detallado de todas las sincronizaciones realizadas</p>';
+    echo '</div>';
+
+    // Segunda fila: Botón de actualizar todo (prominente)
+    echo '<div class="mb-6 text-center">';
+    echo '<form method="post" class="inline-block">';
     echo '<input type="hidden" name="update_all"/>';
-    echo '<button type="submit" class="inline-flex items-center px-5 py-2.5 border border-gray-200 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 transition-all duration-200" id="update-all-btn">';
-    echo '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-gray-500" viewBox="0 0 20 20" fill="currentColor">';
+    echo '<button type="submit" class="inline-flex items-center px-6 py-3 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200" id="update-all-btn">';
+    echo '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-white" viewBox="0 0 20 20" fill="currentColor">';
     echo '<path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />';
     echo '</svg>';
-    echo '<span id="update-all-text">Actualizar todo</span>';
+    echo '<span id="update-all-text">Resincronizar Todos los Productos</span>';
     echo '<span id="update-all-spinner" class="hidden ml-2">';
     echo '<div class="flex items-center">';
-    echo '<svg class="animate-spin h-4 w-4 mr-2 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">';
+    echo '<svg class="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">';
     echo '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>';
     echo '<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>';
     echo '</svg>';
@@ -400,9 +420,11 @@ function nb_options_page()
     echo '</span>';
     echo '</button>';
     echo '</form>';
+    echo '<p class="text-xs text-gray-500 mt-2">Si cambiaste los markups o realizaste algún ajuste, resincroniza todos los productos</p>';
+    echo '</div>';
 
-    // Botones adicionales
-    echo '<div class="flex flex-wrap justify-center gap-4">';
+    // Tercera fila: Botones secundarios (agrupados)
+    echo '<div class="flex flex-wrap justify-center gap-3">';
     btn_update_description_products();
     btn_delete_products();
     echo '</div>';
