@@ -11,11 +11,33 @@ class NB_Logs_Manager
     
     public function __construct()
     {
-        self::$logs_dir = plugin_dir_path(__FILE__) . '../logs-sync-nb/';
+        self::init_logs_dir();
+    }
+    
+    /**
+     * Inicializar el directorio de logs y asegurar que existe
+     */
+    private static function init_logs_dir()
+    {
+        if (empty(self::$logs_dir)) {
+            self::$logs_dir = plugin_dir_path(__FILE__) . '../logs-sync-nb/';
+        }
         
         // Asegurar que el directorio existe
         if (!file_exists(self::$logs_dir)) {
             wp_mkdir_p(self::$logs_dir);
+            
+            // Crear archivo .htaccess para proteger los logs
+            $htaccess_file = self::$logs_dir . '.htaccess';
+            if (!file_exists($htaccess_file)) {
+                file_put_contents($htaccess_file, "Deny from all\n");
+            }
+            
+            // Crear archivo index.php vacío para mayor seguridad
+            $index_file = self::$logs_dir . 'index.php';
+            if (!file_exists($index_file)) {
+                file_put_contents($index_file, "<?php\n// Silence is golden.\n");
+            }
         }
     }
     
@@ -29,6 +51,9 @@ class NB_Logs_Manager
      */
     public static function create_log($api_data, $sync_stats = [], $sync_type = 'auto')
     {
+        // Asegurar que el directorio de logs existe
+        self::init_logs_dir();
+        
         try {
             // Obtener información del usuario actual
             $current_user = wp_get_current_user();
@@ -88,6 +113,9 @@ class NB_Logs_Manager
      */
     public static function get_logs_list()
     {
+        // Asegurar que el directorio de logs existe
+        self::init_logs_dir();
+        
         $logs = [];
         
         if (!is_dir(self::$logs_dir)) {
@@ -138,6 +166,9 @@ class NB_Logs_Manager
      */
     public static function read_log($filename)
     {
+        // Asegurar que el directorio de logs existe
+        self::init_logs_dir();
+        
         $filepath = self::$logs_dir . sanitize_file_name($filename);
         
         if (!file_exists($filepath)) {
@@ -193,6 +224,9 @@ class NB_Logs_Manager
      */
     public static function cleanup_old_logs($days_to_keep = 30)
     {
+        // Asegurar que el directorio de logs existe
+        self::init_logs_dir();
+        
         $deleted_count = 0;
         $cutoff_time = time() - ($days_to_keep * 24 * 60 * 60);
         
@@ -217,6 +251,9 @@ class NB_Logs_Manager
      */
     public static function cleanup_excess_logs($max_logs = 15)
     {
+        // Asegurar que el directorio de logs existe
+        self::init_logs_dir();
+        
         $deleted_count = 0;
         
         if (!is_dir(self::$logs_dir)) {
@@ -287,6 +324,9 @@ class NB_Logs_Manager
      */
     public static function get_logs_stats()
     {
+        // Asegurar que el directorio de logs existe
+        self::init_logs_dir();
+        
         $logs = self::get_logs_list();
         $total_size = 0;
         
