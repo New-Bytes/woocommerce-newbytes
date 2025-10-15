@@ -4,12 +4,12 @@ Plugin Name: Conector NewBytes
 Description: Sincroniza los productos del catálogo de NewBytes con WooCommerce.
 Author: NewBytes
 Author URI: https://nb.com.ar
-Version: 0.1.8
+Version: 0.1.9
 */
 
 // remover usar prod
 define('API_URL_NB', 'https://api.nb.com.ar/v1');
-define('VERSION_NB', '0.1.8');
+define('VERSION_NB', '0.1.9');
 
 // Incluye los archivos necesarios
 require_once plugin_dir_path(__FILE__) . 'includes/admin-hooks.php';
@@ -41,3 +41,4 @@ add_action('nb_cron_sync_event', 'nb_callback');
 
 register_activation_hook(__FILE__, 'nb_activation');
 register_deactivation_hook(__FILE__, 'nb_deactivation');
+register_uninstall_hook(__FILE__, 'nb_uninstall');

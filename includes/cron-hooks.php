@@ -32,7 +32,29 @@ function nb_update_cron_schedule($old_value = null, $value = null)
 function nb_callback($syncDescription = false)
 {
     try {
-        error_log('nb_callback ejecutado a las: ' . date('Y-m-d H:i:s'), 3, __DIR__ . '/debug-newbytes.txt');
+        // VERIFICACIÓN CRÍTICA: No ejecutar si el plugin está desactivado
+        if (!is_plugin_active('woocommerce-newbytes/woocommerce-newbytes.php')) {
+            error_log('[NewBytes] BLOQUEADO: Intento de sincronización con plugin desactivado - ' . date('Y-m-d H:i:s'));
+            return array(
+                'success' => false,
+                'error' => 'Plugin desactivado. Sincronización bloqueada.',
+                'blocked' => true
+            );
+        }
+        
+        // Verificar que las credenciales estén configuradas
+        $nb_user = get_option('nb_user');
+        $nb_password = get_option('nb_password');
+        if (empty($nb_user) || empty($nb_password)) {
+            error_log('[NewBytes] BLOQUEADO: Credenciales no configuradas - ' . date('Y-m-d H:i:s'));
+            return array(
+                'success' => false,
+                'error' => 'Credenciales no configuradas.',
+                'blocked' => true
+            );
+        }
+        
+        error_log('[NewBytes] Sincronización iniciada - ' . date('Y-m-d H:i:s'), 3, __DIR__ . '/debug-newbytes.txt');
 
         // Guardar límites originales
         $original_max_execution_time = ini_get('max_execution_time');
@@ -147,30 +169,45 @@ function nb_callback($syncDescription = false)
                                 'Authorization' => 'Bearer ' . $token,
                                 'Content-Type'  => 'application/json'
                             ),
-                            'timeout'  => 30,
+                            'timeout'  => 60, // Aumentado a 60 segundos para descripciones largas
                             'blocking' => true,
                         );
 
+                        nb_log('Solicitando descripción para producto', 'debug', array('sku' => $sku, 'product_id' => $row['id']));
+                        
                         $description_response = wp_remote_get($description_url, $description_args);
 
                         if (!is_wp_error($description_response)) {
+                            $status_code = wp_remote_retrieve_response_code($description_response);
                             $description_body = wp_remote_retrieve_body($description_response);
-                            $description_json = json_decode($description_body, true);
+                            
+                            if ($status_code === 200) {
+                                $description_json = json_decode($description_body, true);
 
-                            if (json_last_error() === JSON_ERROR_NONE && isset($description_json['description'])) {
-                                $json_description = $description_json['description'];
+                                if (json_last_error() === JSON_ERROR_NONE && isset($description_json['description'])) {
+                                    $json_description = $description_json['description'];
 
-                                // Obtener descripción adicional desde la opción
-                                $additional_description = get_option('nb_description', '');
+                                    // Obtener descripción adicional desde la opción
+                                    $additional_description = get_option('nb_description', '');
 
-                                $full_description = $additional_description . ' ' . $json_description;
+                                    $full_description = trim($additional_description . ' ' . $json_description);
 
-                                $product->set_description($full_description);
+                                    $product->set_description($full_description);
+                                    nb_log('Descripción sincronizada exitosamente', 'info', array('sku' => $sku));
+                                } else {
+                                    $error_msg = 'Error al decodificar JSON de descripción para SKU ' . $sku . ': ' . json_last_error_msg();
+                                    nb_log($error_msg, 'warning', array('body_preview' => substr($description_body, 0, 100)));
+                                    error_log('[NewBytes] ' . $error_msg);
+                                }
                             } else {
-                                error_log('Error en la respuesta de la descripción para el producto con SKU ' . $sku);
+                                $error_msg = 'Error HTTP al obtener descripción para SKU ' . $sku . ' (HTTP ' . $status_code . ')';
+                                nb_log($error_msg, 'warning', array('status_code' => $status_code, 'body' => substr($description_body, 0, 200)));
+                                error_log('[NewBytes] ' . $error_msg);
                             }
                         } else {
-                            error_log('Error en la solicitud de descripción para el producto con SKU ' . $sku . ': ' . $description_response->get_error_message());
+                            $error_msg = 'Error en la solicitud de descripción para SKU ' . $sku . ': ' . $description_response->get_error_message();
+                            nb_log($error_msg, 'error', array('error_code' => $description_response->get_error_code()));
+                            error_log('[NewBytes] ' . $error_msg);
                         }
                     }
 
