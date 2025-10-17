@@ -38,6 +38,29 @@ function nb_log($message, $level = 'info', $context = array()) {
 }
 
 /**
+ * Guarda el token de autenticación y establece su fecha de expiración
+ * 
+ * @param string $token El token de autenticación
+ * @param int $expiry_time Tiempo de expiración en segundos (por defecto 24 horas)
+ * @return bool True si se guardó correctamente, False si no
+ */
+function nb_save_token($token, $expiry_time = 86400)
+{
+    if (empty($token)) {
+        return false;
+    }
+
+    // Guardar el token
+    $token_saved = update_option('nb_token', $token);
+
+    // Calcular y guardar la fecha de expiración (tiempo actual + tiempo de expiración)
+    $expiry = time() + $expiry_time;
+    $expiry_saved = update_option('nb_token_expiry', $expiry);
+
+    return $token_saved && $expiry_saved;
+}
+
+/**
  * Verificar estado de autenticación
  * @return bool
  */
@@ -49,9 +72,27 @@ function nb_check_auth_status() {
         return false;
     }
     
-    // Intentar obtener token para verificar credenciales
+    // Verificar si hay un token almacenado y válido
+    $token = get_option('nb_token');
+    $token_expiry = get_option('nb_token_expiry');
+
+    if (!empty($token) && !empty($token_expiry)) {
+        // Si el token no ha expirado, consideramos que está autenticado
+        if (time() < $token_expiry) {
+            return true;
+        }
+    }
+    
+    // Si llegamos aquí, intentamos obtener un nuevo token
     $token = nb_get_token();
-    return !empty($token);
+    
+    // Si obtuvimos un token válido, lo guardamos con su fecha de expiración
+    if (!empty($token)) {
+        nb_save_token($token);
+        return true;
+    }
+    
+    return false;
 }
 
 function nb_get_token()

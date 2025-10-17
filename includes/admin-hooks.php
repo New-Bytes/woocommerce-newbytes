@@ -118,6 +118,5 @@ function nb_uninstall()
     // El usuario debe eliminarlos manualmente si lo desea
 }
 
-add_action('admin_menu', 'nb_menu');
-add_action('admin_init', 'nb_register_settings');
-add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'nb_plugin_action_links');
+// Los hooks se registran en el archivo principal woocommerce-newbytes.php
+// para evitar duplicados y problemas de plugin_basename
