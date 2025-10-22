@@ -38,7 +38,7 @@ function nb_callback($syncDescription = false)
             require_once(ABSPATH . 'wp-admin/includes/plugin.php');
         }
         
-        if (!is_plugin_active('woocommerce-newbytes-main/woocommerce-newbytes.php')) {
+        if (!is_plugin_active('woocommerce-newbytes/woocommerce-newbytes.php')) {
             error_log('[NewBytes] BLOQUEADO: Intento de sincronización con plugin desactivado - ' . date('Y-m-d H:i:s'));
             return array(
                 'success' => false,

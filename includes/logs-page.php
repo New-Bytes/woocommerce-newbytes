@@ -10,8 +10,9 @@ function nb_logs_page()
         wp_die(__('You do not have sufficient permissions to access this page.'));
     }
 
-    // Add Tailwind CSS
-    echo '<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>';
+    // Add Tailwind CSS from local file
+    $plugin_url_assets = plugin_dir_url(__FILE__) . '../assets/';
+    echo '<script src="' . esc_url($plugin_url_assets . 'browser.js') . '"></script>';
 
     $plugin_url = plugin_dir_url(__FILE__);
     $icon_url = $plugin_url . '../assets/icon-128x128.png';
@@ -40,28 +41,28 @@ function nb_logs_page()
     echo '</div>';
 
     // Estadísticas
-    echo '<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">';
+    echo '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">';
     
     echo '<div class="bg-white rounded-lg shadow-md p-6">';
     echo '<p class="text-2xl font-semibold text-gray-900">' . $logs_stats['total_logs'] . '</p>';
     echo '<p class="text-sm text-gray-600">Total de Logs</p>';
     echo '</div>';
-
+    
     echo '<div class="bg-white rounded-lg shadow-md p-6">';
     echo '<p class="text-2xl font-semibold text-gray-900">' . $logs_stats['formatted_size'] . '</p>';
     echo '<p class="text-sm text-gray-600">Tamaño Total</p>';
     echo '</div>';
-
+    
     echo '<div class="bg-white rounded-lg shadow-md p-6">';
     echo '<p class="text-2xl font-semibold text-gray-900">' . $logs_stats['newest_log'] . '</p>';
     echo '<p class="text-sm text-gray-600">Último Log</p>';
     echo '</div>';
-
+    
     echo '<div class="bg-white rounded-lg shadow-md p-6">';
     echo '<p class="text-2xl font-semibold text-gray-900">' . $logs_stats['oldest_log'] . '</p>';
     echo '<p class="text-sm text-gray-600">Primer Log</p>';
     echo '</div>';
-
+    
     echo '</div>';
 
     // Botón de limpieza de logs

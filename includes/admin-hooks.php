@@ -13,6 +13,33 @@ function nb_menu()
     add_management_page('NewBytes Logs', 'NewBytes Logs', 'manage_options', 'nb-logs', 'nb_logs_page');
 }
 
+/**
+ * Encolar estilos CSS solo en las páginas del plugin
+ * Evita conflictos con otros plugins
+ */
+function nb_enqueue_admin_styles($hook) {
+    // Solo cargar en nuestras páginas
+    if ($hook !== 'settings_page_nb' && $hook !== 'tools_page_nb-logs') {
+        return;
+    }
+
+    wp_enqueue_style(
+        'nb-admin-styles',
+        plugin_dir_url(__FILE__) . '../assets/admin-styles.css',
+        array(),
+        VERSION_NB
+    );
+    
+    // Cargar Font Awesome desde archivo local
+    wp_enqueue_style(
+        'nb-fontawesome',
+        plugin_dir_url(__FILE__) . '../assets/all.min.css',
+        array(),
+        '5.15.4'
+    );
+}
+add_action('admin_enqueue_scripts', 'nb_enqueue_admin_styles');
+
 function nb_register_settings()
 {
     register_setting('nb_options', 'nb_user');
