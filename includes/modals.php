@@ -2,28 +2,28 @@
 
 function modal_confirm_delete_products()
 {
-    echo '<div id="delete-confirm-modal" class="hidden fixed inset-0 bg-gray-800/70 backdrop-blur-sm flex justify-center items-center z-50">
-        <div class="bg-white p-6 rounded-lg shadow-lg text-center max-w-md w-full mx-4">
-            <div class="flex justify-center mb-4">
-                <svg class="h-12 w-12 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    echo '<div id="delete-confirm-modal" class="nb-modal hidden">
+        <div class="nb-modal-content">
+            <div class="nb-modal-icon">
+                <svg class="nb-icon-lg" style="color: #f59e0b;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
             </div>
-            <h2 class="text-xl font-semibold text-gray-800 mb-2">Advertencia</h2>
-            <p class="text-gray-600 mb-4">Esta acción eliminará todos los productos de New Bytes.</p>
+            <h2 class="nb-modal-title">Advertencia</h2>
+            <p class="nb-modal-text">Esta acción eliminará todos los productos de New Bytes.</p>
             <form id="confirm-delete-form">
                 <input type="hidden" name="action" value="nb_delete_products" />
                 <input type="hidden" name="delete_all" value="1" />';
     wp_nonce_field('nb_delete_all', 'nb_delete_all_nonce');
-    echo '      <div class="flex justify-center space-x-4 mt-6">
-                    <button type="button" id="confirm-delete-btn" class="inline-flex items-center justify-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-lg text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 transition-all duration-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+    echo '      <div class="nb-modal-actions">
+                    <button type="button" id="confirm-delete-btn" class="nb-btn nb-btn-red">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="nb-icon-md nb-mr-2" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
                         </svg>
                         Eliminar
                     </button>
-                    <button type="button" id="cancel-delete" class="inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition-all duration-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <button type="button" id="cancel-delete" class="nb-btn" style="background-color: white; color: #374151; border: 1px solid #d1d5db;">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="nb-icon-md nb-mr-2" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
                         </svg>
                         Cancelar
@@ -36,8 +36,8 @@ function modal_confirm_delete_products()
 
 function btn_delete_products()
 {
-    echo '<button type="button" id="delete-all-btn" class="inline-flex items-center px-5 py-2.5 mt-4 border border-red-200 shadow-sm text-sm font-medium rounded-lg text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 transition-all duration-200">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+    echo '<button type="button" id="delete-all-btn" class="nb-btn nb-btn-red nb-mt-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="nb-icon-md nb-mr-2" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
         </svg>
         Eliminar Productos
@@ -46,8 +46,8 @@ function btn_delete_products()
 
 function btn_update_description_products()
 {
-    echo '<button type="button" id="update-description-btn" class="inline-flex items-center px-5 py-2.5 mt-4 mr-4 border border-indigo-200 shadow-sm text-sm font-medium rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 transition-all duration-200">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+    echo '<button type="button" id="update-description-btn" class="nb-btn nb-btn-indigo nb-mt-4 nb-mr-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="nb-icon-md nb-mr-2" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
         </svg>
         Sincronizar Descripciones
@@ -56,28 +56,28 @@ function btn_update_description_products()
 
 function modal_confirm_update_()
 {
-    echo '<div id="update-description-confirm-modal" class="hidden fixed inset-0 bg-gray-800/70 backdrop-blur-sm flex justify-center items-center z-50">
-        <div class="bg-white p-6 rounded-lg shadow-lg text-center max-w-md w-full mx-4">
-            <div class="flex justify-center mb-4">
-                <svg class="h-12 w-12 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    echo '<div id="update-description-confirm-modal" class="nb-modal hidden">
+        <div class="nb-modal-content">
+            <div class="nb-modal-icon">
+                <svg class="nb-icon-lg" style="color: #f59e0b;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
             </div>
-            <h2 class="text-xl font-semibold text-gray-800 mb-2">Advertencia</h2>
-            <p class="text-gray-600 mb-4"><strong>Esta acción reemplazará todas las descripciones de los productos pertenecientes a NewBytes. Ten en cuenta que se sobrescribirán todas las descripciones actuales.</strong></p>
-            <form id="confirm-update-description-form" class="inline-block">
+            <h2 class="nb-modal-title">Advertencia</h2>
+            <p class="nb-modal-text"><strong>Esta acción reemplazará todas las descripciones de los productos pertenecientes a NewBytes. Ten en cuenta que se sobrescribirán todas las descripciones actuales.</strong></p>
+            <form id="confirm-update-description-form" style="display: inline-block;">
                 <input type="hidden" name="action" value="nb_update_description_products" />
                 <input type="hidden" name="update_description_all" value="1" />';
     wp_nonce_field('nb_update_description_all', 'nb_update_description_all_nonce');
-    echo '  <div class="flex justify-center space-x-4 mt-6">
-                <button type="button" id="confirm-update-description-btn" class="inline-flex items-center justify-center px-5 py-2.5 border border-indigo-200 text-sm font-medium rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 transition-all duration-200">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+    echo '  <div class="nb-modal-actions">
+                <button type="button" id="confirm-update-description-btn" class="nb-btn nb-btn-indigo">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="nb-icon-md nb-mr-2" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
                     </svg>
                     Actualizar Descripciones
                 </button>
-                <button type="button" id="cancel-update-description" class="inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition-all duration-200">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <button type="button" id="cancel-update-description" class="nb-btn" style="background-color: white; color: #374151; border: 1px solid #d1d5db;">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="nb-icon-md nb-mr-2" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
                     </svg>
                     Cerrar
@@ -89,15 +89,15 @@ function modal_confirm_update_()
 }
 function modal_success_confirm_update()
 {
-    echo '<div id="success-confirm-modal" class="hidden fixed inset-0 bg-gray-800/70 backdrop-blur-sm flex justify-center items-center z-50">
-        <div class="bg-white p-6 rounded-lg shadow-lg text-center max-w-md w-full mx-4">
-            <div class="flex justify-center mb-4">
-                <svg class="h-12 w-12 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    echo '<div id="success-confirm-modal" class="nb-modal hidden">
+        <div class="nb-modal-content">
+            <div class="nb-modal-icon">
+                <svg class="nb-icon-lg" style="color: #10b981;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             </div>
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">Descripciones sincronizadas con éxito</h2>
-            <button type="button" id="close-success-modal-btn" class="inline-flex items-center justify-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-lg text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 transition-all duration-200">
+            <h2 class="nb-modal-title" style="margin-bottom: 1rem;">Descripciones sincronizadas con éxito</h2>
+            <button type="button" id="close-success-modal-btn" class="nb-btn" style="background-color: #10b981; color: white;">
                 Cerrar
             </button>
         </div>
@@ -105,16 +105,16 @@ function modal_success_confirm_update()
 }
 function modal_fail_confirm_update()
 {
-    echo '<div id="fail-confirm-modal" class="hidden fixed inset-0 bg-gray-800/70 backdrop-blur-sm flex justify-center items-center z-50">
-        <div class="bg-white p-6 rounded-lg shadow-lg text-center max-w-md w-full mx-4">
-            <div class="flex justify-center mb-4">
-                <svg class="h-12 w-12 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    echo '<div id="fail-confirm-modal" class="nb-modal hidden">
+        <div class="nb-modal-content">
+            <div class="nb-modal-icon">
+                <svg class="nb-icon-lg" style="color: #ef4444;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             </div>
-            <h2 class="text-xl font-semibold text-gray-800 mb-2">Error al sincronizar descripciones</h2>
-            <p class="text-gray-600 mb-4">Hubo un problema al sincronizar las descripciones. Por favor, inténtalo de nuevo.</p>
-            <button type="button" id="close-fail-modal-btn" class="inline-flex items-center justify-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-lg text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 transition-all duration-200">
+            <h2 class="nb-modal-title">Error al sincronizar descripciones</h2>
+            <p class="nb-modal-text">Hubo un problema al sincronizar las descripciones. Por favor, inténtalo de nuevo.</p>
+            <button type="button" id="close-fail-modal-btn" class="nb-btn nb-btn-red">
                 Cerrar
             </button>
         </div>
@@ -200,7 +200,8 @@ function js_handler_modals()
                 }).then(response => response.json()).then(data => {
                     if (data.success) {
                         // Ocultar el modal de confirmación
-                        deleteConfirmModal.style.display = "none";
+                        deleteConfirmModal.classList.add("hidden");
+                        deleteConfirmModal.classList.remove("flex");
                         
                         // Mostrar mensaje de éxito
                         const successMessage = document.createElement("div");
@@ -351,9 +352,12 @@ function js_handler_modals()
                     credentials: "same-origin"
                 }).then(response => response.json()).then(data => {
                     if (data.success) {
-                        // Mostrar estadísticas en el modal de éxito
+                        // Mostrar mensaje específico para sincronización de descripciones
                         const stats = data.data.stats;
-                        const successMessage = `Se actualizaron ${stats.updated} productos, se crearon ${stats.created} productos nuevos y se eliminaron ${stats.deleted} productos.`;
+                        const totalProducts = (stats.updated || 0) + (stats.created || 0);
+                        const successMessage = totalProducts > 0 
+                            ? `Las descripciones de ${totalProducts} productos fueron sincronizadas correctamente desde la API de NewBytes.`
+                            : `La sincronización se completó. No se encontraron productos para actualizar.`;
                         
                         const successModalContent = document.querySelector("#success-confirm-modal div");
                         if (successModalContent) {
@@ -363,7 +367,7 @@ function js_handler_modals()
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                 </div>
-                                <h2 class="text-xl font-semibold text-gray-800 mb-2">Sincronización completada con éxito</h2>
+                                <h2 class="text-xl font-semibold text-gray-800 mb-2">Descripciones sincronizadas correctamente</h2>
                                 <p class="text-gray-600 mb-4">${successMessage}</p>
                                 <button type="button" id="close-success-modal-btn" class="inline-flex items-center justify-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-lg text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 transition-all duration-200">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -420,10 +424,3 @@ function js_handler_modals()
     });
     </script>';
 }
-
-function enqueue_fontawesome()
-{
-    wp_enqueue_style('fontawesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css');
-}
-
-add_action('admin_enqueue_scripts', 'enqueue_fontawesome');
