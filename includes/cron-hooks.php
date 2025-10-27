@@ -32,21 +32,6 @@ function nb_update_cron_schedule($old_value = null, $value = null)
 function nb_callback($syncDescription = false)
 {
     try {
-        // VERIFICACIÓN CRÍTICA: No ejecutar si el plugin está desactivado
-        // Incluir el archivo necesario para is_plugin_active()
-        if (!function_exists('is_plugin_active')) {
-            require_once(ABSPATH . 'wp-admin/includes/plugin.php');
-        }
-        
-        if (!is_plugin_active('woocommerce-newbytes/woocommerce-newbytes.php')) {
-            error_log('[NewBytes] BLOQUEADO: Intento de sincronización con plugin desactivado - ' . date('Y-m-d H:i:s'));
-            return array(
-                'success' => false,
-                'error' => 'Plugin desactivado. Sincronización bloqueada.',
-                'blocked' => true
-            );
-        }
-        
         // Verificar que las credenciales estén configuradas
         $nb_user = get_option('nb_user');
         $nb_password = get_option('nb_password');
