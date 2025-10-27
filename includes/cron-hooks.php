@@ -32,14 +32,20 @@ function nb_update_cron_schedule($old_value = null, $value = null)
 function nb_callback($syncDescription = false)
 {
     try {
-        // VERIFICACIÓN CRÍTICA: No ejecutar si el plugin está desactivado
-        // Incluir el archivo necesario para is_plugin_active()
-        if (!function_exists('is_plugin_active')) {
-            require_once(ABSPATH . 'wp-admin/includes/plugin.php');
+        // VERIFICACIÓN DE SEGURIDAD: Verificar que el plugin esté activo
+        // Usar get_option en lugar de is_plugin_active() que puede fallar en contextos AJAX
+        $active_plugins = get_option('active_plugins', array());
+        $plugin_found = false;
+        
+        foreach ($active_plugins as $plugin) {
+            if (strpos($plugin, 'woocommerce-newbytes') !== false && strpos($plugin, '.php') !== false) {
+                $plugin_found = true;
+                break;
+            }
         }
         
-        if (!is_plugin_active('woocommerce-newbytes/woocommerce-newbytes.php')) {
-            error_log('[NewBytes] BLOQUEADO: Intento de sincronización con plugin desactivado - ' . date('Y-m-d H:i:s'));
+        if (!$plugin_found) {
+            error_log('[NewBytes] BLOQUEADO: Plugin no está activo - ' . date('Y-m-d H:i:s'));
             return array(
                 'success' => false,
                 'error' => 'Plugin desactivado. Sincronización bloqueada.',
