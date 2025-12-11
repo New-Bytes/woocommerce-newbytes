@@ -4,24 +4,26 @@ Plugin Name: Conector NewBytes
 Description: Sincroniza los productos del catálogo de NewBytes con WooCommerce.
 Author: NewBytes
 Author URI: https://nb.com.ar
-Version: 0.2.0
+Version: 0.2.1
 */
 
 // remover usar prod
 define('API_URL_NB', 'https://api.nb.com.ar/v1');
-define('VERSION_NB', '0.2.0');
+define('VERSION_NB', '0.2.1');
 
 // Incluye los archivos necesarios
 require_once plugin_dir_path(__FILE__) . 'includes/admin-hooks.php';
+require_once plugin_dir_path(__FILE__) . 'includes/utils.php';
+require_once plugin_dir_path(__FILE__) . 'includes/product-manager.php';
 require_once plugin_dir_path(__FILE__) . 'includes/cron-hooks.php';
 require_once plugin_dir_path(__FILE__) . 'includes/rest-api.php';
-require_once plugin_dir_path(__FILE__) . 'includes/utils.php';
 require_once plugin_dir_path(__FILE__) . 'includes/product-sync.php';
 require_once plugin_dir_path(__FILE__) . 'includes/product-delete.php';
-require_once plugin_dir_path(__FILE__) . 'includes/modals.php';
-require_once plugin_dir_path(__FILE__) . 'includes/settings.php';
+require_once plugin_dir_path(__FILE__) . 'includes/settings-v3.php';
 require_once plugin_dir_path(__FILE__) . 'includes/logs-manager.php';
 require_once plugin_dir_path(__FILE__) . 'includes/logs-page.php';
+require_once plugin_dir_path(__FILE__) . 'includes/sync-ajax.php';
+require_once plugin_dir_path(__FILE__) . 'includes/description-sync.php';
 
 // Hooks de activación y desactivación
 

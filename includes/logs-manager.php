@@ -15,7 +15,7 @@ class NB_Logs_Manager
     }
     
     /**
-     * Inicializar el directorio de logs y asegurar que existe
+     * Inicializar el directorio de logs y asegurar que existe con permisos correctos
      */
     private static function init_logs_dir()
     {
@@ -23,10 +23,26 @@ class NB_Logs_Manager
             self::$logs_dir = plugin_dir_path(__FILE__) . '../logs-sync-nb/';
         }
         
-        // Asegurar que el directorio existe
+        // Asegurar que el directorio existe con permisos de escritura
         if (!file_exists(self::$logs_dir)) {
-            wp_mkdir_p(self::$logs_dir);
-            
+            // Crear directorio con permisos 0755 (lectura/escritura para owner, lectura para otros)
+            if (!mkdir(self::$logs_dir, 0755, true)) {
+                // Fallback a wp_mkdir_p si mkdir falla
+                wp_mkdir_p(self::$logs_dir);
+            }
+        }
+        
+        // Asegurar permisos de escritura (0755 o 0775 según configuración de WP)
+        if (is_dir(self::$logs_dir) && !is_writable(self::$logs_dir)) {
+            @chmod(self::$logs_dir, 0755);
+            // Si aún no es escribible, intentar con permisos más permisivos
+            if (!is_writable(self::$logs_dir)) {
+                @chmod(self::$logs_dir, 0775);
+            }
+        }
+        
+        // Crear archivos de protección solo si el directorio es escribible
+        if (is_writable(self::$logs_dir)) {
             // Crear archivo .htaccess para proteger los logs
             $htaccess_file = self::$logs_dir . '.htaccess';
             if (!file_exists($htaccess_file)) {

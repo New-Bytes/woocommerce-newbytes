@@ -393,23 +393,23 @@ function nb_options_page()
     echo '<p style="font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem;">Consulta el historial detallado de todas las sincronizaciones realizadas</p>';
     echo '</div>';
 
-    // Segunda fila: Botón de actualizar todo (prominente)
+    // Segunda fila: Botón de actualizar todo (prominente) - Ahora con AJAX
     echo '<div class="nb-mb-4 nb-text-center">';
-    echo '<form method="post" style="display: inline-block;">';
-    echo '<input type="hidden" name="update_all"/>';
-    echo '<button type="submit" class="nb-btn nb-btn-blue" style="padding: 0.75rem 1.5rem;" id="update-all-btn">';
+    echo '<button type="button" class="nb-btn nb-btn-blue" style="padding: 0.75rem 1.5rem;" id="btn-prepare-sync">';
     echo '<svg xmlns="http://www.w3.org/2000/svg" class="nb-icon-md nb-mr-2" viewBox="0 0 20 20" fill="currentColor">';
     echo '<path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />';
     echo '</svg>';
-    echo '<span id="update-all-text">Resincronizar Todos los Productos</span>';
-    echo '<span id="update-all-spinner" class="nb-hidden" style="margin-left: 0.5rem;">';
+    echo '<span id="btn-prepare-sync-text">Resincronizar Todos los Productos</span>';
+    echo '<span id="btn-prepare-sync-spinner" class="nb-hidden" style="margin-left: 0.5rem;">';
     echo '<span class="nb-spinner"></span>';
-    echo '<span>Sincronizando artículos...</span>';
+    echo '<span>Preparando sincronización...</span>';
     echo '</span>';
     echo '</button>';
-    echo '</form>';
     echo '<p style="font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem;">Si cambiaste los markups o realizaste algún ajuste, resincroniza todos los productos</p>';
     echo '</div>';
+    
+    // Nonce para AJAX
+    echo '<input type="hidden" id="nb_sync_nonce" value="' . wp_create_nonce('nb_sync_nonce') . '" />';
 
     // Tercera fila: Botones secundarios (agrupados)
     echo '<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem;">';
@@ -418,72 +418,20 @@ function nb_options_page()
     echo '</div>';
     echo '</div>'; // Cierre del div mt-8 border-t
 
-    if (isset($_POST['update_all'])) {
-        $response = nb_callback();
-        if (isset($response['success']) && $response['success']) {
-            echo '<div class="bg-white border-l-4 border-green-500 rounded-lg shadow-md p-5 my-6">
-                    <div class="flex items-center mb-4">
-                        <svg class="h-6 w-6 text-green-500 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                        </svg>
-                        <h3 class="text-lg font-medium text-gray-800">Sincronización completada</h3>
-                    </div>
-                    <div class="bg-gray-50 rounded-lg p-4 mb-2">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-                                <div class="flex justify-center mb-2">
-                                    <svg class="h-6 w-6 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                    </svg>
-                                </div>
-                                <p class="text-lg font-semibold text-gray-800">' . $response['stats']['created'] . '</p>
-                                <p class="text-xs text-gray-500">Productos agregados</p>
-                            </div>
-                            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-                                <div class="flex justify-center mb-2">
-                                    <svg class="h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                    </svg>
-                                </div>
-                                <p class="text-lg font-semibold text-gray-800">' . $response['stats']['updated'] . '</p>
-                                <p class="text-xs text-gray-500">Productos actualizados</p>
-                            </div>
-                            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-                                <div class="flex justify-center mb-2">
-                                    <svg class="h-6 w-6 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                    </svg>
-                                </div>
-                                <p class="text-lg font-semibold text-gray-800">' . (isset($response['stats']['deleted']) ? $response['stats']['deleted'] : '0') . '</p>
-                                <p class="text-xs text-gray-500">Errores</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>';
-            echo '<p class="text-xs text-gray-500 mt-2 text-right">Última actualización: ';
-            nb_show_last_update();
-            echo '</p>';
-        } else {
-            echo '<div class="bg-white border-l-4 border-red-500 rounded-lg shadow-md p-5 my-6">
-                    <div class="flex items-center mb-4">
-                        <svg class="h-6 w-6 text-red-500 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <h3 class="text-lg font-medium text-gray-800">Error en la sincronización</h3>
-                    </div>
-                    <p class="text-gray-600">' . (isset($response['error']) ? esc_html($response['error']) : 'Error desconocido durante la sincronización.') . '</p>
-                </div>';
-        }
-    }
-
     // Agregar los modales al DOM
     modal_confirm_delete_products();
     modal_confirm_update_();
     modal_success_confirm_update();
     modal_fail_confirm_update();
+    
+    // Modal de sincronización con progreso
+    nb_modal_sync_progress();
 
     // Agregar el manejador de JavaScript
     js_handler_modals();
+    
+    // JavaScript para sincronización con progreso
+    nb_js_sync_progress();
 
     echo '<script>
         jQuery(document).ready(function($) {
@@ -509,11 +457,6 @@ function nb_options_page()
                         }
                     });
                 }
-            });
-
-            $("#update-all-btn").on("click", function() {
-                $("#update-all-text").hide();
-                $("#update-all-spinner").show();
             });
         });
     </script>';
