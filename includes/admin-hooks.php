@@ -23,19 +23,12 @@ function nb_enqueue_admin_styles($hook) {
         return;
     }
 
+    // Nuevo diseño Vercel-inspired
     wp_enqueue_style(
-        'nb-admin-styles',
-        plugin_dir_url(__FILE__) . '../assets/admin-styles.css',
+        'nb-admin-styles-v2',
+        plugin_dir_url(__FILE__) . '../assets/admin-styles-v2.css',
         array(),
-        VERSION_NB
-    );
-    
-    // Cargar Font Awesome desde archivo local
-    wp_enqueue_style(
-        'nb-fontawesome',
-        plugin_dir_url(__FILE__) . '../assets/all.min.css',
-        array(),
-        '5.15.4'
+        VERSION_NB . '.2'
     );
 }
 add_action('admin_enqueue_scripts', 'nb_enqueue_admin_styles');
@@ -55,6 +48,52 @@ function nb_register_settings()
 function nb_activation()
 {
     nb_update_cron_schedule();
+    
+    // Crear directorios necesarios con permisos correctos
+    nb_create_plugin_directories();
+}
+
+/**
+ * Crea los directorios necesarios para el plugin con permisos de escritura
+ */
+function nb_create_plugin_directories()
+{
+    $plugin_dir = plugin_dir_path(__FILE__) . '../';
+    
+    $directories = array(
+        $plugin_dir . 'nb-products/',
+        $plugin_dir . 'logs-sync-nb/',
+        $plugin_dir . 'nb-descriptions/'
+    );
+    
+    foreach ($directories as $dir) {
+        if (!file_exists($dir)) {
+            // Crear directorio con permisos 0755
+            if (!mkdir($dir, 0755, true)) {
+                wp_mkdir_p($dir);
+            }
+        }
+        
+        // Asegurar permisos de escritura
+        if (is_dir($dir) && !is_writable($dir)) {
+            @chmod($dir, 0755);
+            if (!is_writable($dir)) {
+                @chmod($dir, 0775);
+            }
+        }
+        
+        // Crear archivo index.php de protección
+        $index_file = $dir . 'index.php';
+        if (!file_exists($index_file) && is_writable($dir)) {
+            file_put_contents($index_file, "<?php\n// Silence is golden.\n");
+        }
+    }
+    
+    // Crear .htaccess en logs-sync-nb para protección adicional
+    $htaccess_file = $plugin_dir . 'logs-sync-nb/.htaccess';
+    if (!file_exists($htaccess_file) && is_writable($plugin_dir . 'logs-sync-nb/')) {
+        file_put_contents($htaccess_file, "Deny from all\n");
+    }
 }
 
 function nb_deactivation()
