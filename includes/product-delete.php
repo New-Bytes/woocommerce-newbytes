@@ -35,18 +35,40 @@ function nb_delete_products()
             )
         );
 
+        # Limpiar metadatos huérfanos con el prefijo (SKUs que quedaron sin producto)
+        $orphan_cleanup = $wpdb->query(
+            $wpdb->prepare(
+                "DELETE pm FROM {$wpdb->postmeta} pm
+                 LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+                 WHERE p.ID IS NULL
+                 AND pm.meta_key = '_sku'
+                 AND pm.meta_value LIKE %s",
+                $prefix . '%'
+            )
+        );
+
+        # Limpiar todos los metadatos huérfanos de los post_ids que ya no existen
+        # (precios, stock, thumbnails, etc. de productos NB eliminados)
+        $orphan_meta_cleanup = $wpdb->query(
+            "DELETE pm FROM {$wpdb->postmeta} pm
+             LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+             WHERE p.ID IS NULL"
+        );
+
         update_option('nb_last_update', date("Y-m-d H:i"));
 
         $end_time      = microtime(true); // Tiempo de finalización del proceso
         $sync_duration = $end_time - $start_time;
 
+        // Convertir a enteros para evitar advertencias de conversión implícita
         $hours   = floor($sync_duration / 3600);
-        $minutes = floor(($sync_duration % 3600) / 60);
-        $seconds = $sync_duration % 60;
+        $minutes = floor(($sync_duration - ($hours * 3600)) / 60);
+        $seconds = $sync_duration - ($hours * 3600) - ($minutes * 60);
 
         $response_data = array(
-            'deleted'       => $deleted_count,
-            'sync_duration' => array(
+            'deleted'         => $deleted_count,
+            'orphans_cleaned' => intval($orphan_cleanup) + intval($orphan_meta_cleanup),
+            'sync_duration'   => array(
                 'hours'   => $hours,
                 'minutes' => $minutes,
                 'seconds' => number_format($seconds, 2)
