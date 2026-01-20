@@ -308,6 +308,11 @@ function nb_callback($syncDescription = false)
                             }
                         }
 
+                        // ID interno NewBytes para integraciones externas
+                        if (isset($row['id'])) {
+                            $product->update_meta_data('_nb_product_id', intval($row['id']));
+                        }
+
                         $product->save();
 
                         // Optimización de imagen destacada
