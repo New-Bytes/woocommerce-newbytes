@@ -295,6 +295,11 @@ function nb_process_product_batch($batch, $sync_description = false)
                     }
                 }
 
+                // ID interno NewBytes para integraciones externas
+                if (isset($row['id'])) {
+                    $product->update_meta_data('_nb_product_id', intval($row['id']));
+                }
+
                 $product->save();
 
                 // Imagen con FIFU
