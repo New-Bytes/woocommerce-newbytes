@@ -83,6 +83,17 @@ function nb_create_single_product($row, $options = array())
         // Configurar producto
         $product->set_sku($sku);
         $product->set_regular_price($price);
+
+        // Clase fiscal según alícuota de IVA informada por la API
+        $iva = isset($row['price']['iva']) ? (float) $row['price']['iva'] : 21;
+        if ($iva <= 0) {
+            $product->set_tax_class('zero-rate');
+        } elseif ($iva < 21) {
+            $product->set_tax_class('reduced-rate');
+        } else {
+            $product->set_tax_class('');
+        }
+
         $product->set_manage_stock(true);
         $product->set_stock_quantity($row['amountStock']);
         $product->set_stock_status($row['amountStock'] > 0 ? 'instock' : 'outofstock');

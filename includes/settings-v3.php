@@ -219,6 +219,15 @@ function nb_options_page()
     echo '<span class="nb-checkbox-label">Sincronizar precios en USD</span>';
     echo '</label>';
     echo '</div>';
+
+    // Nota sobre clases fiscales de IVA
+    echo '<div class="nb-alert nb-alert-info nb-mt-2">';
+    echo '<svg class="nb-alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+    echo '<div class="nb-alert-content">';
+    echo '<p class="nb-alert-title">Configuración de IVA en WooCommerce</p>';
+    echo '<p class="nb-alert-text">El conector asigna automáticamente la clase fiscal según el IVA de cada producto (21% → estándar, 10.5% → tipo reducido). Para que los cálculos sean correctos, asegurate de tener configuradas las tasas correspondientes en <a href="' . admin_url('admin.php?page=wc-settings&tab=tax') . '" style="text-decoration: underline;">WooCommerce → Ajustes → Impuestos</a>.</p>';
+    echo '</div>';
+    echo '</div>';
     
     // Descripción adicional
     echo '<div class="nb-form-group">';
