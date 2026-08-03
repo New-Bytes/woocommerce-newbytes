@@ -236,6 +236,37 @@ function nb_options_page()
     echo '<p class="nb-form-hint">Se añadirá al final de la descripción de cada producto</p>';
     echo '</div>';
     
+    // Estado de salud de la sincronización automática
+    $cron_health = nb_get_cron_health();
+    $diagnostic_text = nb_build_diagnostic_text($cron_health);
+    $severity_class = array(
+        'ok'      => 'nb-alert-success',
+        'warning' => 'nb-alert-warning',
+        'error'   => 'nb-alert-error',
+    )[$cron_health['severity']];
+
+    echo '<div class="nb-alert ' . $severity_class . ' nb-mb-4" id="nb-cron-health-banner">';
+    echo '<svg class="nb-alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+    echo '<div class="nb-alert-content">';
+    echo '<p class="nb-alert-title">Estado de sincronización automática</p>';
+    echo '<p class="nb-alert-text">' . esc_html($cron_health['message']) . '</p>';
+
+    echo '<div class="nb-data-row" style="margin-top:8px;">';
+    echo '<span class="nb-data-label">Última sync automática</span>';
+    echo '<span class="nb-data-value">' . esc_html($cron_health['last_auto_sync'] ? human_time_diff(strtotime($cron_health['last_auto_sync'])) . ' atrás' : 'Nunca') . '</span>';
+    echo '</div>';
+    echo '<div class="nb-data-row">';
+    echo '<span class="nb-data-label">Última sync manual</span>';
+    echo '<span class="nb-data-value">' . esc_html($cron_health['last_manual_sync'] ? human_time_diff(strtotime($cron_health['last_manual_sync'])) . ' atrás' : 'Nunca') . '</span>';
+    echo '</div>';
+
+    if ($cron_health['severity'] !== 'ok') {
+        echo '<button type="button" id="nb-sync-now-from-banner-btn" class="nb-btn nb-btn-sm nb-btn-primary nb-mt-2" style="margin-right:8px;">Sincronizar ahora</button>';
+    }
+    echo '<button type="button" id="nb-copy-diagnostics-btn" class="nb-btn nb-btn-sm nb-btn-secondary nb-mt-2" data-diagnostic="' . esc_attr($diagnostic_text) . '">Copiar diagnóstico</button>';
+    echo '</div>'; // nb-alert-content
+    echo '</div>'; // nb-alert
+
     // Info última sync
     $last_update_formatted = $last_update ? date('d/m/Y H:i', strtotime($last_update . '-3 hours')) : 'Nunca';
     echo '<div class="nb-data-row" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--nb-border-primary);">';
@@ -585,6 +616,25 @@ function nb_render_scripts_v3()
         });
 
         // ============================================
+        // Copiar diagnóstico de salud del cron
+        // ============================================
+        $('#nb-copy-diagnostics-btn').on('click', function() {
+            var text = $(this).data('diagnostic');
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(function() {
+                    showToast('success', 'Copiado', 'Diagnóstico copiado al portapapeles');
+                }, function() {
+                    showToast('error', 'Error', 'No se pudo copiar. Copiá manualmente el texto.');
+                });
+            } else {
+                var $tmp = $('<textarea>').val(text).appendTo('body').select();
+                document.execCommand('copy');
+                $tmp.remove();
+                showToast('success', 'Copiado', 'Diagnóstico copiado al portapapeles');
+            }
+        });
+
+        // ============================================
         // SKU Preview
         // ============================================
         $('#nb_prefix').on('input', function() {
@@ -898,11 +948,12 @@ function nb_render_scripts_v3()
         var totalCreated = 0;
         var totalUpdated = 0;
 
-        $('#btn-prepare-sync').on('click', function() {
-            var $btn = $(this);
+        function startSync($btn) {
             $('#btn-prepare-sync-text').addClass('nb-hidden');
             $('#btn-prepare-sync-spinner').removeClass('nb-hidden');
-            $btn.prop('disabled', true);
+            if ($btn) {
+                $btn.prop('disabled', true);
+            }
 
             $.ajax({
                 url: '<?php echo $ajax_url; ?>',
@@ -914,7 +965,9 @@ function nb_render_scripts_v3()
                 success: function(response) {
                     $('#btn-prepare-sync-text').removeClass('nb-hidden');
                     $('#btn-prepare-sync-spinner').addClass('nb-hidden');
-                    $btn.prop('disabled', false);
+                    if ($btn) {
+                        $btn.prop('disabled', false);
+                    }
 
                     if (response.success) {
                         syncData = response.data;
@@ -929,10 +982,20 @@ function nb_render_scripts_v3()
                 error: function() {
                     $('#btn-prepare-sync-text').removeClass('nb-hidden');
                     $('#btn-prepare-sync-spinner').addClass('nb-hidden');
-                    $btn.prop('disabled', false);
+                    if ($btn) {
+                        $btn.prop('disabled', false);
+                    }
                     showToast('error', 'Error', 'Error de conexión');
                 }
             });
+        }
+
+        $('#btn-prepare-sync').on('click', function() {
+            startSync($(this));
+        });
+
+        $('#nb-sync-now-from-banner-btn').on('click', function() {
+            startSync($(this));
         });
 
         $('#nb-btn-cancel-sync').on('click', function() {
