@@ -33,6 +33,25 @@ function nb_enqueue_admin_styles($hook) {
 }
 add_action('admin_enqueue_scripts', 'nb_enqueue_admin_styles');
 
+/**
+ * Watchdog: si el evento de cron se perdió (por ejemplo, tras una
+ * actualización sin reactivar el plugin), lo reprograma. Corre solo
+ * en las páginas del propio plugin para no pagar el costo en cada
+ * carga de /wp-admin/ del sitio.
+ */
+function nb_cron_watchdog($screen)
+{
+    if ($screen->id !== 'settings_page_nb' && $screen->id !== 'tools_page_nb-logs') {
+        return;
+    }
+
+    if (!wp_next_scheduled('nb_cron_sync_event')) {
+        nb_update_cron_schedule();
+        nb_log('Watchdog: evento nb_cron_sync_event no estaba programado, se reprogramó automáticamente', 'warning');
+    }
+}
+add_action('current_screen', 'nb_cron_watchdog');
+
 function nb_register_settings()
 {
     register_setting('nb_options', 'nb_user');
@@ -160,6 +179,8 @@ function nb_uninstall()
     delete_option('nb_description');
     delete_option('nb_sync_interval');
     delete_option('nb_last_update');
+    delete_option('nb_last_auto_sync');
+    delete_option('nb_last_manual_sync');
     
     // 3. Limpiar transients relacionados (si existen)
     delete_transient('nb_api_token');
