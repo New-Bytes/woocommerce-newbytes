@@ -1,0 +1,9 @@
+.git
+.gitignore
+.distignore
+.claude
+specs
+bin
+.github
+*.md
+!README.md

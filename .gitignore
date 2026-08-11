@@ -1,0 +1,7 @@
+# Andamiaje interno de desarrollo (spec-driven dev) — nunca sube a GitHub, queda solo local.
+/specs/
+/bin/
+/.claude/
+
+# Salida del build local del plugin.
+/dist/

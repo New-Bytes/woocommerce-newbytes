@@ -359,7 +359,14 @@ function nb_callback($syncDescription = false)
         $execution_time = ($end_time - $start_time);
 
         // Actualizar la fecha de última actualización
-        update_option('nb_last_update', current_time('mysql'));
+        $current_mysql_time = current_time('mysql');
+        update_option('nb_last_update', $current_mysql_time);
+
+        if ($sync_type === 'auto') {
+            update_option('nb_last_auto_sync', $current_mysql_time);
+        } else {
+            update_option('nb_last_manual_sync', $current_mysql_time);
+        }
 
         // Preparar estadísticas finales
         $final_stats = array(
