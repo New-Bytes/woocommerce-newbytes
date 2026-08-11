@@ -205,8 +205,9 @@ function nb_options_page()
         echo '<option value="' . esc_attr($value) . '"' . selected($current_interval, $value, false) . '>' . esc_html($label) . '</option>';
     }
     echo '</select>';
+    echo '<p class="nb-form-hint">El intervalo define cada cuánto <em>debe</em> intentarse la sincronización, no un temporizador exacto: se ejecuta la primera vez que alguien visita el sitio después de vencido ese tiempo. Si el sitio recibe poco tráfico, la sync puede tardar más que el intervalo elegido — no es un error.</p>';
     echo '</div>';
-    
+
     // Checkboxes de precio
     echo '<div class="nb-form-group">';
     echo '<label class="nb-form-label">Opciones de precio</label>';
