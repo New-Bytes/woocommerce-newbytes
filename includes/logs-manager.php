@@ -1,4 +1,7 @@
 <?php
+if (!defined('ABSPATH')) {
+    exit;
+}
 
 /**
  * Gestor de logs JSON para sincronizaciones NewBytes

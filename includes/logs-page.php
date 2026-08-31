@@ -1,4 +1,7 @@
 <?php
+if (!defined('ABSPATH')) {
+    exit;
+}
 
 /**
  * Página de visualización de logs de sincronización NewBytes

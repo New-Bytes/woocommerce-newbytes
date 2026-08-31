@@ -38,3 +38,34 @@ El plugin permite sincronizar los productos automáticamente cada minuto. Tambi�
 - **Actualización de Inventarios y Precios**: Mantiene actualizados los inventarios y precios de los productos.
 - **Configuración de Imágenes Destacadas**: Integra con el plugin FIFU para gestionar imágenes destacadas mediante URL.
 - **Interfaz de Ajustes**: Proporciona una página de ajustes para configurar los parámetros necesarios para la sincronización.
+
+## Configuración de IVA
+
+El conector asigna la clase fiscal de cada producto según el IVA que informa la API
+(21% → Estándar, 10,5% → Reducido, 0% → Exento). Configurá las tasas
+correspondientes en **WooCommerce → Ajustes → Impuestos**.
+
+El campo **"Sincronizar precios sin IVA"** debe combinarse con el ajuste
+**"Precios introducidos con impuestos"** de WooCommerce:
+
+| "Sincronizar sin IVA" | "Precios con impuestos" (WooCommerce) | Resultado |
+|---|---|---|
+| **Tildado** (recomendado) | **No** | WooCommerce agrega el IVA según la clase fiscal. Correcto. |
+| Destildado | **Sí** | WooCommerce descuenta el IVA del precio. Correcto. |
+| Destildado | **No** | El IVA se cobra dos veces. **Evitar.** |
+
+Si tu tienda usa clases fiscales con *slugs* distintos de los de WooCommerce
+(`reduced-rate`, `zero-rate`), definí la opción `nb_tax_class_map`:
+
+```php
+update_option('nb_tax_class_map', [
+    'standard' => '',          // 21%
+    'reduced'  => 'tu-slug',   // 10,5%
+    'exempt'   => 'tu-slug',   // 0%
+]);
+```
+
+## Desarrollo
+
+Este plugin se desarrolla por especificaciones. Ver `.spec/` (vault de contexto,
+specs por incidencia y orquestación).

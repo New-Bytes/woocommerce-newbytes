@@ -1,5 +1,6 @@
 # Andamiaje interno de desarrollo (spec-driven dev) — nunca sube a GitHub, queda solo local.
 /specs/
+/.spec/
 /bin/
 /.claude/
 

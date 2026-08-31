@@ -1,4 +1,7 @@
 <?php
+if (!defined('ABSPATH')) {
+    exit;
+}
 
 function nb_plugin_action_links($links)
 {
@@ -62,6 +65,36 @@ function nb_register_settings()
     register_setting('nb_options', 'nb_sync_usd');
     register_setting('nb_options', 'nb_description');
     register_setting('nb_options', 'nb_sync_interval');
+    register_setting('nb_options', 'nb_tax_class_map', array(
+        'type'              => 'array',
+        'sanitize_callback' => 'nb_sanitize_tax_class_map',
+        'default'           => array(),
+    ));
+}
+
+/**
+ * Sanea el mapa IVA -> slug de clase fiscal.
+ * Claves permitidas: standard, reduced, exempt. Valores: slug (sanitize_key), '' válido.
+ *
+ * @param mixed $value
+ * @return array
+ */
+function nb_sanitize_tax_class_map($value)
+{
+    if (!is_array($value)) {
+        return array();
+    }
+
+    $out = array();
+    foreach (array('standard', 'reduced', 'exempt') as $key) {
+        if (!array_key_exists($key, $value)) {
+            continue;
+        }
+        $slug = (string) $value[$key];
+        $out[$key] = $slug === '' ? '' : sanitize_key($slug);
+    }
+
+    return $out;
 }
 
 function nb_activation()
@@ -142,6 +175,9 @@ function nb_deactivation()
         _set_cron_array($cron_array);
     }
     
+    // Liberar cualquier lock de sincronización que haya quedado
+    delete_transient('nb_sync_running');
+
     // Log de desactivación
     error_log('[NewBytes] Plugin desactivado - Todos los cron events eliminados: ' . date('Y-m-d H:i:s'));
 }
@@ -173,18 +209,35 @@ function nb_uninstall()
     delete_option('nb_user');
     delete_option('nb_password');
     delete_option('nb_token');
+    delete_option('nb_token_expiry');
     delete_option('nb_prefix');
     delete_option('nb_sync_no_iva');
     delete_option('nb_sync_usd');
     delete_option('nb_description');
     delete_option('nb_sync_interval');
+    delete_option('nb_tax_class_map');
     delete_option('nb_last_update');
     delete_option('nb_last_auto_sync');
     delete_option('nb_last_manual_sync');
-    
+    delete_option('nb_last_description_update');
+
     // 3. Limpiar transients relacionados (si existen)
     delete_transient('nb_api_token');
     delete_transient('nb_sync_status');
+    delete_transient('nb_sync_running');
+    delete_transient('nb_sync_stats');
+    delete_transient('nb_description_stats');
+
+    // 3b. Borrar el directorio de logs (wp-content/uploads/nb-logs/)
+    if (function_exists('nb_log_dir')) {
+        $log_dir = nb_log_dir();
+        foreach ((array) glob($log_dir . '*') as $f) {
+            if (is_file($f)) {
+                @unlink($f);
+            }
+        }
+        @rmdir($log_dir);
+    }
     
     // 4. Limpiar logs (opcional - comentado por si el usuario quiere mantener historial)
     // $logs_dir = plugin_dir_path(__FILE__) . '../logs-sync-nb/';
