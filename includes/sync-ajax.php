@@ -24,6 +24,11 @@ function nb_ajax_prepare_sync()
         wp_send_json_error(array('message' => 'Sin permisos'));
     }
 
+    // No pisar una sincronización en curso (p. ej. el cron)
+    if (nb_sync_is_locked()) {
+        wp_send_json_error(array('message' => 'Ya hay una sincronización en curso. Esperá a que termine.'));
+    }
+
     try {
         // Generar JSON desde la API
         $result = NB_Product_Manager::generate_products_json();
@@ -86,6 +91,15 @@ function nb_ajax_process_batch()
     $batch_size = isset($_POST['batch_size']) ? intval($_POST['batch_size']) : 50;
     $sync_description = isset($_POST['sync_description']) && $_POST['sync_description'] === 'true';
 
+    // Lock de concurrencia: el primer lote lo toma, los siguientes lo renuevan.
+    if ($offset === 0) {
+        if (!nb_sync_acquire_lock()) {
+            wp_send_json_error(array('message' => 'Ya hay una sincronización en curso.'));
+        }
+    } else {
+        nb_sync_refresh_lock();
+    }
+
     try {
         // Aumentar límites para el procesamiento
         ini_set('max_execution_time', '300');
@@ -106,16 +120,19 @@ function nb_ajax_process_batch()
             $prefix = get_option('nb_prefix');
             $existing_skus = array();
             foreach ($all_products as $row) {
-                $existing_skus[] = $prefix . $row['sku'];
+                if (!empty($row['sku'])) {
+                    $existing_skus[] = $prefix . $row['sku'];
+                }
             }
             nb_delete_products_by_prefix($existing_skus, $prefix);
         }
 
         // Obtener el lote actual
         $batch = array_slice($all_products, $offset, $batch_size);
-        
+
         if (empty($batch)) {
             // No hay más productos, finalizar
+            nb_sync_release_lock();
             wp_send_json_success(array(
                 'completed' => true,
                 'processed' => $offset,
@@ -132,30 +149,33 @@ function nb_ajax_process_batch()
         // Si es el último lote, crear el log y actualizar fecha
         if ($is_completed) {
             update_option('nb_last_update', current_time('mysql'));
-            
+
             // Obtener estadísticas totales de la sesión
             $stats = get_transient('nb_sync_stats');
             if (!$stats) {
-                $stats = array('created' => 0, 'updated' => 0, 'deleted' => 0);
+                $stats = array('created' => 0, 'updated' => 0, 'deleted' => 0, 'priceless' => 0);
             }
-            
+
             // Sumar estadísticas del lote actual
-            $stats['created'] += $result['created'];
-            $stats['updated'] += $result['updated'];
-            
+            $stats['created']   += $result['created'];
+            $stats['updated']   += $result['updated'];
+            $stats['priceless']  = (isset($stats['priceless']) ? $stats['priceless'] : 0) + $result['priceless'];
+
             // Crear log
             NB_Logs_Manager::create_log($all_products, $stats, 'manual');
-            
-            // Limpiar transient
+
+            // Limpiar transient y liberar el lock
             delete_transient('nb_sync_stats');
+            nb_sync_release_lock();
         } else {
             // Guardar estadísticas parciales
             $stats = get_transient('nb_sync_stats');
             if (!$stats) {
-                $stats = array('created' => 0, 'updated' => 0, 'deleted' => 0);
+                $stats = array('created' => 0, 'updated' => 0, 'deleted' => 0, 'priceless' => 0);
             }
-            $stats['created'] += $result['created'];
-            $stats['updated'] += $result['updated'];
+            $stats['created']   += $result['created'];
+            $stats['updated']   += $result['updated'];
+            $stats['priceless']  = (isset($stats['priceless']) ? $stats['priceless'] : 0) + $result['priceless'];
             set_transient('nb_sync_stats', $stats, 3600);
         }
 
@@ -165,165 +185,124 @@ function nb_ajax_process_batch()
             'total' => $total_products,
             'batch_created' => $result['created'],
             'batch_updated' => $result['updated'],
+            'batch_priceless' => $result['priceless'],
             'stats' => $is_completed ? $stats : null
         ));
 
     } catch (Exception $e) {
+        nb_sync_release_lock();
         wp_send_json_error(array('message' => 'Error: ' . $e->getMessage()));
     }
 }
 
 /**
- * Procesar un lote de productos
+ * Procesa un lote de productos usando el mapper unificado.
+ *
+ * @see .spec/specs/SPEC-0001-unified-product-mapper.md
+ *
+ * @param array $batch            Filas de producto de la API.
+ * @param bool  $sync_description Si además trae la descripción de cada producto.
+ * @return array{created:int,updated:int,priceless:int}
  */
 function nb_process_product_batch($batch, $sync_description = false)
 {
-    global $wpdb;
-    
     $prefix = get_option('nb_prefix');
-    $sync_no_iva = get_option('nb_sync_no_iva');
-    $sync_usd = get_option('nb_sync_usd');
-    
-    $created_count = 0;
-    $updated_count = 0;
-    $categories_cache = array();
-    
-    // Obtener token si se sincronizan descripciones
+
+    $created_count   = 0;
+    $updated_count   = 0;
+    $priceless_count = 0;
+
+    $map_options = array(
+        'prefix'      => $prefix,
+        'sync_no_iva' => (bool) get_option('nb_sync_no_iva'),
+        'sync_usd'    => (bool) get_option('nb_sync_usd'),
+        'skip_additional_description' => (bool) $sync_description,
+    );
+
     $token = null;
     if ($sync_description) {
         $token = nb_get_token();
     }
 
-    // Desactivar hooks pesados
     wp_defer_term_counting(true);
     wp_defer_comment_counting(true);
 
-    foreach ($batch as $row) {
-        $id = null;
-        $sku = $prefix . $row['sku'];
+    try {
+        foreach ($batch as $row) {
+            if (empty($row['sku'])) {
+                continue;
+            }
 
-        // Verificar si el SKU ya existe
-        $existing_product_id = wc_get_product_id_by_sku($sku);
+            $sku = $prefix . $row['sku'];
+            $id  = null;
 
-        if ($existing_product_id) {
-            $id = $existing_product_id;
-            $updated_count++;
-        } elseif ($row['amountStock'] > 0 && !empty($row['sku'])) {
-            $product_data = array(
-                'post_title'   => $row['title'],
-                'post_type'    => 'product',
-                'post_status'  => 'publish',
-            );
-            $id = wp_insert_post($product_data, false, false);
-            $created_count++;
-        }
+            $existing_product_id = wc_get_product_id_by_sku($sku);
+            if ($existing_product_id) {
+                $id = $existing_product_id;
+                $updated_count++;
+            } elseif (isset($row['amountStock']) && $row['amountStock'] > 0) {
+                $id = wp_insert_post(array(
+                    'post_title'  => isset($row['title']) ? $row['title'] : $sku,
+                    'post_type'   => 'product',
+                    'post_status' => 'publish',
+                ), false, false);
 
-        if ($id) {
-            try {
-                // Calcular precio
-                if ($sync_usd) {
-                    $price = $sync_no_iva ? $row['price']['value'] : $row['price']['finalPriceWithUtility'];
-                } else {
-                    $price = $sync_no_iva
-                        ? $row['price']['value'] * $row['cotizacion']
-                        : $row['price']['finalPriceWithUtility'] * $row['cotizacion'];
-                }
-
-                clean_post_cache($id);
-                $product = wc_get_product($id);
-                
-                if (!$product) {
+                if (is_wp_error($id) || !$id) {
+                    nb_log('No se pudo crear el post para SKU ' . $sku, 'error');
                     continue;
                 }
-                
-                $product->set_sku($sku);
+                $created_count++;
+            }
 
-                // Sincronizar descripción si está activado
-                if ($sync_description && $token) {
-                    $description_url = API_URL_NB . '/autoGeneratedDescription/' . (int)$row['id'];
-                    $description_args = array(
-                        'headers' => array(
-                            'Authorization' => 'Bearer ' . $token,
-                            'Content-Type' => 'application/json'
-                        ),
-                        'timeout' => 60,
-                    );
+            if (!$id) {
+                continue;
+            }
 
-                    $description_response = wp_remote_get($description_url, $description_args);
+            try {
+                clean_post_cache($id);
+                $product = wc_get_product($id);
+                if (!$product) {
+                    nb_log('No se pudo obtener el producto WC ' . $id . ' (SKU ' . $sku . ')', 'error');
+                    continue;
+                }
 
-                    if (!is_wp_error($description_response)) {
-                        $status_code = wp_remote_retrieve_response_code($description_response);
-                        if ($status_code === 200) {
-                            $description_json = json_decode(wp_remote_retrieve_body($description_response), true);
-                            if (isset($description_json['description'])) {
-                                $additional_description = get_option('nb_description', '');
-                                $full_description = trim($additional_description . ' ' . $description_json['description']);
-                                $product->set_description($full_description);
-                            }
-                        }
+                if ($sync_description && $token && isset($row['id'])) {
+                    $desc = nb_fetch_product_description((int) $row['id'], $token);
+                    if ($desc !== null) {
+                        $additional = (string) get_option('nb_description', '');
+                        $product->set_description(trim($additional . ' ' . $desc));
                     }
                 }
 
-                // Categoría
-                $category_to_use = !empty($row['categoryDescriptionUser']) ? $row['categoryDescriptionUser'] : $row['category'];
-                if (!empty($category_to_use)) {
-                    if (!isset($categories_cache[$category_to_use])) {
-                        $category_term = term_exists($category_to_use, 'product_cat');
-                        if (!$category_term) {
-                            $category_term = wp_insert_term($category_to_use, 'product_cat');
-                        }
-                        $categories_cache[$category_to_use] = is_wp_error($category_term) ? null : $category_term['term_id'];
-                    }
-                    if (!empty($categories_cache[$category_to_use])) {
-                        $product->set_category_ids(array($categories_cache[$category_to_use]));
-                    }
+                $map = NB_Product_Mapper::apply_core($product, $row, $map_options);
+                if (!$map['ok']) {
+                    nb_log('Fila inválida, se omite', 'warning', array('sku' => $sku));
+                    continue;
                 }
-
-                $product->set_regular_price($price);
-                $product->set_manage_stock(true);
-                $product->set_stock_quantity($row['amountStock']);
-                $product->set_stock_status($row['amountStock'] > 0 ? 'instock' : 'outofstock');
-                $product->set_weight($row['weightAverage'] / 1000);
-                $product->set_width($row['widthAverage'] / 10);
-                $product->set_length($row['lengthAverage'] / 10);
-                $product->set_height($row['highAverage'] / 10);
-
-                if (!$sync_description) {
-                    $additional_description = get_option('nb_description', '');
-                    if (!empty($additional_description)) {
-                        $product->set_description($additional_description);
-                    }
-                }
-
-                // ID interno NewBytes para integraciones externas
-                if (isset($row['id'])) {
-                    $product->update_meta_data('_nb_product_id', intval($row['id']));
+                if (in_array('price', $map['skipped'], true)) {
+                    $priceless_count++;
+                    nb_log('Precio omitido para ' . $sku, 'warning', array(
+                        'row_id' => isset($row['id']) ? $row['id'] : null,
+                    ));
                 }
 
                 $product->save();
 
-                // Imagen con FIFU
-                if ((is_plugin_active('featured-image-from-url/featured-image-from-url.php') || is_plugin_active('fifu-premium/fifu-premium.php'))) {
-                    $image = !empty($row['mainImageExp']) ? $row['mainImageExp'] : (isset($row['mainImage']) ? $row['mainImage'] : null);
-                    if (!empty($image)) {
-                        fifu_dev_set_image($id, $image);
-                    }
-                }
-
+                nb_set_fifu_image($id, $row);
             } catch (Exception $e) {
-                error_log('[NewBytes] Error procesando SKU ' . $sku . ': ' . $e->getMessage());
+                nb_log('Error procesando SKU ' . $sku . ': ' . $e->getMessage(), 'error');
                 continue;
             }
         }
+    } finally {
+        wp_defer_term_counting(false);
+        wp_defer_comment_counting(false);
     }
 
-    // Restaurar hooks
-    wp_defer_term_counting(false);
-    wp_defer_comment_counting(false);
-
     return array(
-        'created' => $created_count,
-        'updated' => $updated_count
+        'created'   => $created_count,
+        'updated'   => $updated_count,
+        'priceless' => $priceless_count,
     );
 }
 

@@ -1,4 +1,8 @@
 <?php
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * Página de configuración del Conector NewBytes
  * Versión 3 - UX Mejorada con Tabs, Dashboard, Toast y más
@@ -14,7 +18,10 @@ function nb_options_page()
     $plugin_url = plugin_dir_url(__FILE__);
     $icon_url = $plugin_url . '../assets/icon-128x128.png';
     $latest_commit = get_latest_version_nb();
-    $show_new_version_button = ($latest_commit > VERSION_NB);
+    $show_new_version_button = (
+        preg_match('/^\d+(\.\d+)*$/', (string) $latest_commit)
+        && version_compare($latest_commit, VERSION_NB, '>')
+    );
 
     // Obtener estadísticas de productos
     $product_stats = nb_get_product_stats();
@@ -100,7 +107,7 @@ function nb_options_page()
     // ============================================
     // Alerta FIFU
     // ============================================
-    if (!is_plugin_active('featured-image-from-url/featured-image-from-url.php') && !is_plugin_active('fifu-premium/fifu-premium.php')) {
+    if (!nb_is_fifu_active()) {
         echo '<div class="nb-alert nb-alert-warning nb-mb-4">';
         echo '<svg class="nb-alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
         echo '<div class="nb-alert-content">';
@@ -226,7 +233,13 @@ function nb_options_page()
     echo '<svg class="nb-alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
     echo '<div class="nb-alert-content">';
     echo '<p class="nb-alert-title">Configuración de IVA en WooCommerce</p>';
-    echo '<p class="nb-alert-text">El conector asigna automáticamente la clase fiscal según el IVA de cada producto (21% → estándar, 10.5% → tipo reducido). Para que los cálculos sean correctos, asegurate de tener configuradas las tasas correspondientes en <a href="' . admin_url('admin.php?page=wc-settings&tab=tax') . '" style="text-decoration: underline;">WooCommerce → Ajustes → Impuestos</a>.</p>';
+    echo '<p class="nb-alert-text">El conector asigna automáticamente la clase fiscal de cada producto según el IVA que informa la API (21% → Estándar, 10,5% → Reducido, 0% → Exento). Configurá las tasas correspondientes en <a href="' . admin_url('admin.php?page=wc-settings&tab=tax') . '" style="text-decoration: underline;">WooCommerce → Ajustes → Impuestos</a>.</p>';
+    echo '<p class="nb-alert-text" style="margin-top:8px;"><strong>Precio + IVA.</strong> El campo <em>“Sincronizar precios sin IVA”</em> debe combinarse con el ajuste <em>“Precios introducidos con impuestos”</em> de WooCommerce:</p>';
+    echo '<ul class="nb-alert-text" style="margin:4px 0 0 16px; list-style:disc;">';
+    echo '<li><strong>Recomendado:</strong> tildá “sin IVA” y dejá WooCommerce en “Precios con impuestos: No”. WooCommerce agrega el IVA según la clase fiscal.</li>';
+    echo '<li>Alternativa: destildá “sin IVA” y poné WooCommerce en “Precios con impuestos: Sí”.</li>';
+    echo '<li><strong>Evitá:</strong> destildado + “Precios con impuestos: No” → el IVA se cobra dos veces.</li>';
+    echo '</ul>';
     echo '</div>';
     echo '</div>';
     
@@ -769,7 +782,10 @@ function nb_render_scripts_v3()
             $.ajax({
                 url: '<?php echo $ajax_url; ?>',
                 type: 'POST',
-                data: { action: 'nb_update_connector' },
+                data: {
+                    action: 'nb_update_connector',
+                    nonce: $('#nb_settings_nonce').val()
+                },
                 success: function() {
                     showToast('success', 'Actualizado', 'Recargando página...');
                     setTimeout(function() { location.reload(); }, 1000);
@@ -1097,6 +1113,38 @@ function nb_render_scripts_v3()
     <?php
 }
 
+/**
+ * Aviso: escenario de "doble IVA".
+ *
+ * Si "Sincronizar precios sin IVA" está destildado y la tienda NO está en modo
+ * "precios con impuestos incluidos", el precio (que ya trae IVA) recibe IVA otra
+ * vez. Sólo se muestra en las páginas del propio plugin. No modifica nada.
+ *
+ * @see .spec/vault/tax-and-pricing.md
+ */
+add_action('admin_notices', 'nb_notice_double_iva');
+function nb_notice_double_iva()
+{
+    $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+    if (!$screen || !in_array($screen->id, array('settings_page_nb', 'tools_page_nb-logs'), true)) {
+        return;
+    }
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+
+    $no_iva_off = !get_option('nb_sync_no_iva');
+    $prices_excl = function_exists('wc_prices_include_tax') && !wc_prices_include_tax();
+
+    if ($no_iva_off && $prices_excl) {
+        echo '<div class="notice notice-warning"><p>';
+        echo '<strong>Conector NewBytes:</strong> tenés “Sincronizar precios sin IVA” <strong>destildado</strong> y WooCommerce está en “precios sin impuestos incluidos”. ';
+        echo 'En esa combinación el IVA se aplica dos veces. Recomendado: tildar “Sincronizar precios sin IVA” en la pestaña ';
+        echo '<a href="' . esc_url(admin_url('options-general.php?page=nb')) . '">Sincronización</a>.';
+        echo '</p></div>';
+    }
+}
+
 // ============================================
 // AJAX Handlers
 // ============================================
@@ -1106,7 +1154,8 @@ function nb_ajax_test_connection() {
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Sin permisos');
     }
-    
+    check_ajax_referer('nb_settings_nonce', 'nonce');
+
     $token = nb_get_token();
     if ($token) {
         wp_send_json_success();
@@ -1120,14 +1169,25 @@ function nb_ajax_save_credentials() {
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Sin permisos');
     }
-    
-    update_option('nb_user', sanitize_text_field($_POST['nb_user']));
-    update_option('nb_password', sanitize_text_field($_POST['nb_password']));
-    update_option('nb_prefix', sanitize_text_field($_POST['nb_prefix']));
-    
+    check_ajax_referer('nb_settings_nonce', 'nonce');
+
+    $user = sanitize_text_field(wp_unslash($_POST['nb_user'] ?? ''));
+    // La contraseña NO se pasa por sanitize_text_field (mutila espacios/símbolos).
+    $password = (string) wp_unslash($_POST['nb_password'] ?? '');
+    $prefix = sanitize_text_field(wp_unslash($_POST['nb_prefix'] ?? ''));
+
+    if ($user === '' || $password === '') {
+        wp_send_json_error('Usuario y contraseña son obligatorios');
+    }
+
+    update_option('nb_user', $user);
+    update_option('nb_password', $password);
+    update_option('nb_prefix', $prefix);
+
     // Limpiar token para forzar re-autenticación
     delete_option('nb_token');
-    
+    delete_option('nb_token_expiry');
+
     wp_send_json_success();
 }
 
@@ -1136,20 +1196,24 @@ function nb_ajax_save_sync_settings() {
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Sin permisos');
     }
-    
+    check_ajax_referer('nb_settings_nonce', 'nonce');
+
     $old_interval = get_option('nb_sync_interval');
-    $new_interval = intval($_POST['nb_sync_interval']);
-    
+    $new_interval = absint($_POST['nb_sync_interval'] ?? 0);
+    if ($new_interval < 60) {
+        $new_interval = 3600;
+    }
+
     update_option('nb_sync_interval', $new_interval);
-    update_option('nb_sync_no_iva', intval($_POST['nb_sync_no_iva']));
-    update_option('nb_sync_usd', intval($_POST['nb_sync_usd']));
-    update_option('nb_description', sanitize_textarea_field($_POST['nb_description']));
-    
+    update_option('nb_sync_no_iva', empty($_POST['nb_sync_no_iva']) ? 0 : 1);
+    update_option('nb_sync_usd', empty($_POST['nb_sync_usd']) ? 0 : 1);
+    update_option('nb_description', sanitize_textarea_field(wp_unslash($_POST['nb_description'] ?? '')));
+
     // Actualizar cron si cambió el intervalo
     if ($old_interval != $new_interval) {
         nb_update_cron_schedule();
     }
-    
+
     wp_send_json_success();
 }
 
@@ -1157,8 +1221,9 @@ add_action('wp_ajax_nb_update_connector', 'nb_update_connector');
 function nb_update_connector()
 {
     if (!current_user_can('manage_options')) {
-        wp_die('Sin permisos');
+        wp_send_json_error('Sin permisos');
     }
+    check_ajax_referer('nb_settings_nonce', 'nonce');
 
     $zip_url = 'https://github.com/New-Bytes/woocommerce-newbytes/archive/refs/heads/main.zip';
     $upload_dir = wp_upload_dir();
@@ -1205,5 +1270,5 @@ function get_latest_version_nb()
     $body = wp_remote_retrieve_body($response);
     preg_match('/Version:\s*(\S+)/', $body, $matches);
 
-    return isset($matches[1]) ? $matches[1] : VERSION_NB;
+    return isset($matches[1]) ? trim($matches[1]) : VERSION_NB;
 }

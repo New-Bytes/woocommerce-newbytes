@@ -1,48 +1,56 @@
 <?php
+if (!defined('ABSPATH')) {
+    exit;
+}
 
 /**
- * Sistema de logging mejorado para NewBytes
- * Previene warnings de PHP y proporciona mejor debugging
+ * Utilidades: logging y autenticación contra la API NewBytes.
+ *
+ * @see .spec/specs/SPEC-0012-logging-hardening.md
  */
 
-// Suprimir warnings específicos en producción (opcional)
+// Suprimir warnings en producción (comportamiento heredado).
 if (!defined('WP_DEBUG') || !WP_DEBUG) {
     error_reporting(E_ERROR | E_PARSE);
 }
 
 /**
- * Función de logging centralizada con niveles
- * @param string $message Mensaje a registrar
- * @param string $level Nivel: 'info', 'warning', 'error', 'debug'
- * @param array $context Contexto adicional
+ * Logging centralizado del plugin.
+ *
+ * Escribe en wp-content/uploads/nb-logs/nb-debug.log (fuera del webroot,
+ * protegido). Rota a nb-debug.log.1 al superar 5 MB.
+ *
+ * @param string $message Mensaje.
+ * @param string $level   'info' | 'warning' | 'error' | 'debug'.
+ * @param array  $context Contexto adicional (se serializa a JSON).
  */
-function nb_log($message, $level = 'info', $context = array()) {
-    $log_file = plugin_dir_path(__FILE__) . 'debug-newbytes.txt';
-    $timestamp = date('Y-m-d H:i:s');
-    $level_upper = strtoupper($level);
-    
-    $log_message = "[{$timestamp}] [{$level_upper}] {$message}";
-    
-    if (!empty($context)) {
-        $log_message .= ' | Context: ' . json_encode($context, JSON_UNESCAPED_UNICODE);
+function nb_log($message, $level = 'info', $context = array())
+{
+    $log_file = nb_log_dir() . 'nb-debug.log';
+
+    if (is_file($log_file) && filesize($log_file) > 5 * 1024 * 1024) {
+        @rename($log_file, $log_file . '.1');
     }
-    
-    $log_message .= PHP_EOL;
-    
-    error_log($log_message, 3, $log_file);
-    
-    // También registrar en el log de WordPress si es un error crítico
+
+    $line = '[' . gmdate('Y-m-d H:i:s') . '] [' . strtoupper($level) . '] ' . $message;
+    if (!empty($context)) {
+        $line .= ' | ' . wp_json_encode($context);
+    }
+    $line .= PHP_EOL;
+
+    @error_log($line, 3, $log_file);
+
     if ($level === 'error') {
         error_log('[NewBytes] ' . $message);
     }
 }
 
 /**
- * Guarda el token de autenticación y establece su fecha de expiración
- * 
- * @param string $token El token de autenticación
- * @param int $expiry_time Tiempo de expiración en segundos (por defecto 24 horas)
- * @return bool True si se guardó correctamente, False si no
+ * Guarda el token de autenticación y su fecha de expiración.
+ *
+ * @param string $token       Token.
+ * @param int    $expiry_time Segundos hasta expiración (24 h por defecto).
+ * @return bool
  */
 function nb_save_token($token, $expiry_time = 86400)
 {
@@ -50,140 +58,103 @@ function nb_save_token($token, $expiry_time = 86400)
         return false;
     }
 
-    // Guardar el token
-    $token_saved = update_option('nb_token', $token);
-
-    // Calcular y guardar la fecha de expiración (tiempo actual + tiempo de expiración)
-    $expiry = time() + $expiry_time;
-    $expiry_saved = update_option('nb_token_expiry', $expiry);
+    $token_saved  = update_option('nb_token', $token);
+    $expiry_saved = update_option('nb_token_expiry', time() + $expiry_time);
 
     return $token_saved && $expiry_saved;
 }
 
 /**
- * Verificar estado de autenticación
+ * ¿Hay credenciales válidas / token vigente?
+ *
  * @return bool
  */
-function nb_check_auth_status() {
-    $user = get_option('nb_user', '');
+function nb_check_auth_status()
+{
+    $user     = get_option('nb_user', '');
     $password = get_option('nb_password', '');
-    
+
     if (empty($user) || empty($password)) {
         return false;
     }
-    
-    // Verificar si hay un token almacenado y válido
-    $token = get_option('nb_token');
+
+    $token        = get_option('nb_token');
     $token_expiry = get_option('nb_token_expiry');
 
-    if (!empty($token) && !empty($token_expiry)) {
-        // Si el token no ha expirado, consideramos que está autenticado
-        if (time() < $token_expiry) {
-            return true;
-        }
+    if (!empty($token) && !empty($token_expiry) && time() < $token_expiry) {
+        return true;
     }
-    
-    // Si llegamos aquí, intentamos obtener un nuevo token
+
     $token = nb_get_token();
-    
-    // Si obtuvimos un token válido, lo guardamos con su fecha de expiración
     if (!empty($token)) {
         nb_save_token($token);
         return true;
     }
-    
+
     return false;
 }
 
+/**
+ * Pide un token nuevo a la API. Nunca imprime HTML (se usa también en cron/REST).
+ *
+ * @return string|null
+ */
 function nb_get_token()
 {
     try {
-        $user = get_option('nb_user', '');
+        $user     = get_option('nb_user', '');
         $password = get_option('nb_password', '');
-        
-        // Validación previa
+
         if (empty($user) || empty($password)) {
             nb_log('Intento de obtener token sin credenciales configuradas', 'warning');
             return null;
         }
-        
-        // Siempre solicitar un nuevo token
+
         $args = array(
-            'headers' => array(
-                'Content-Type' => 'application/json'
-            ),
-            'body' => json_encode(array(
-                'user' => $user,
+            'headers' => array('Content-Type' => 'application/json'),
+            'body'    => wp_json_encode(array(
+                'user'     => $user,
                 'password' => $password,
-                'mode' => 'wp-extension',
-                'domain' => home_url()
+                'mode'     => 'wp-extension',
+                'domain'   => home_url(),
             )),
-            'timeout' => '5',
+            'timeout'  => 10,
             'blocking' => true,
         );
 
-        nb_log('Solicitando token de autenticación', 'debug', array('user' => $user));
-        
         $response = wp_remote_post(API_URL_NB . '/auth/login', $args);
 
         if (is_wp_error($response)) {
-            $error_msg = 'Error en la solicitud de token: ' . $response->get_error_message();
-            nb_log($error_msg, 'error');
-            nb_show_error_message($error_msg);
+            nb_log('Error en la solicitud de token: ' . $response->get_error_message(), 'error');
             return null;
         }
 
-        $status_code = wp_remote_retrieve_response_code($response);
-        $body = wp_remote_retrieve_body($response);
-        
+        $status_code = (int) wp_remote_retrieve_response_code($response);
+        $body        = wp_remote_retrieve_body($response);
+
         if ($status_code !== 200) {
-            nb_log('Error HTTP en autenticación', 'error', array('status_code' => $status_code, 'body' => $body));
-            nb_show_error_message('Error de autenticación (HTTP ' . $status_code . ')');
+            nb_log('Error HTTP en autenticación', 'error', array('status_code' => $status_code));
             return null;
         }
-        
-        $json = json_decode($body, true);
 
+        $json = json_decode($body, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            $error_msg = 'Error al decodificar JSON de la solicitud de token: ' . json_last_error_msg();
-            nb_log($error_msg, 'error', array('body' => substr($body, 0, 200)));
-            nb_show_error_message($error_msg);
+            nb_log('JSON inválido en la respuesta de token: ' . json_last_error_msg(), 'error');
             return null;
         }
 
         if (isset($json['token'])) {
-            nb_log('Token obtenido exitosamente', 'info');
+            nb_log('Token obtenido correctamente', 'info');
             return $json['token'];
         }
 
-        $error_msg = 'Token no encontrado en la respuesta';
-        nb_log($error_msg, 'error', array('response' => $json));
-        nb_show_error_message($error_msg);
+        nb_log('Token no encontrado en la respuesta de la API', 'error');
         return null;
     } catch (Exception $e) {
         nb_log('Excepción en nb_get_token: ' . $e->getMessage(), 'error', array(
             'file' => $e->getFile(),
-            'line' => $e->getLine()
+            'line' => $e->getLine(),
         ));
-        echo '<div class="notice notice-error"><p>Error crítico: ' . esc_html($e->getMessage()) . '</p></div>';
         return null;
     }
-}
-
-function output_response($data)
-{
-    echo json_encode($data);
-}
-
-function nb_show_error_message($error)
-{
-    echo '<p style="color: red;">' . $error . '</p>';
-}
-
-function nb_show_last_update()
-{
-    $last_update = esc_attr(get_option('nb_last_update') != '' ? date('d/m/Y H:i', strtotime(get_option('nb_last_update') . '-3 hours')) : '--');
-    echo '<script>
-    document.getElementById("last_update").innerText = "' . $last_update . '";
-    </script>';
 }

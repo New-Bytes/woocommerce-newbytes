@@ -1,4 +1,7 @@
 <?php
+if (!defined('ABSPATH')) {
+    exit;
+}
 
 /**
  * Gestor de productos JSON para sincronizaciones NewBytes

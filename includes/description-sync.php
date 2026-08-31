@@ -510,6 +510,11 @@ function nb_ajax_prepare_descriptions()
         wp_send_json_error(array('message' => 'Sin permisos'));
     }
 
+    // No pisar una sincronización en curso
+    if (nb_sync_is_locked()) {
+        wp_send_json_error(array('message' => 'Ya hay una sincronización en curso. Esperá a que termine.'));
+    }
+
     try {
         // Limpiar transients para asegurar datos frescos
         delete_transient('nb_description_stats');
@@ -576,6 +581,15 @@ function nb_ajax_process_descriptions_batch()
     $offset = isset($_POST['offset']) ? intval($_POST['offset']) : 0;
     $batch_size = isset($_POST['batch_size']) ? intval($_POST['batch_size']) : 50;
 
+    // Lock de concurrencia: el primer lote lo toma, los siguientes lo renuevan.
+    if ($offset === 0) {
+        if (!nb_sync_acquire_lock()) {
+            wp_send_json_error(array('message' => 'Ya hay una sincronización en curso.'));
+        }
+    } else {
+        nb_sync_refresh_lock();
+    }
+
     try {
         // Aumentar límites para el procesamiento
         ini_set('max_execution_time', '300');
@@ -585,6 +599,7 @@ function nb_ajax_process_descriptions_batch()
         $read_result = NB_Description_Manager::read_latest_update_json();
 
         if (!$read_result['success']) {
+            nb_sync_release_lock();
             wp_send_json_error(array('message' => $read_result['error']));
         }
 
@@ -593,9 +608,10 @@ function nb_ajax_process_descriptions_batch()
 
         // Obtener el lote actual
         $batch = array_slice($all_descriptions, $offset, $batch_size);
-        
+
         if (empty($batch)) {
             // No hay más descripciones, finalizar
+            nb_sync_release_lock();
             wp_send_json_success(array(
                 'completed' => true,
                 'processed' => $offset,
@@ -624,9 +640,10 @@ function nb_ajax_process_descriptions_batch()
             $stats['updated'] += $result['updated'];
             $stats['not_found'] += $result['not_found'];
             
-            // Limpiar transient
+            // Limpiar transient y liberar el lock
             delete_transient('nb_description_stats');
-            
+            nb_sync_release_lock();
+
             nb_log('Actualización de descripciones completada', 'info', $stats);
         } else {
             // Guardar estadísticas parciales
@@ -649,6 +666,7 @@ function nb_ajax_process_descriptions_batch()
         ));
 
     } catch (Exception $e) {
+        nb_sync_release_lock();
         wp_send_json_error(array('message' => 'Error: ' . $e->getMessage()));
     }
 }
