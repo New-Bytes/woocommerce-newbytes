@@ -107,10 +107,51 @@ final class NB_Product_Mapper
             $product->update_meta_data('_nb_product_id', (int) $row['id']);
         }
 
+        // Garantía: si la API no manda la clave, se conserva el valor guardado
+        if (array_key_exists('warranty', $row)) {
+            $warranty = self::map_warranty($row);
+            if ($warranty === null) {
+                $product->delete_meta_data('_nb_warranty');
+            } else {
+                $product->update_meta_data('_nb_warranty', $warranty);
+            }
+        }
+
         return $res;
     }
 
     /* --------------------------------------------------------------------- */
+
+    /**
+     * Normaliza la garantía de la API para mostrarla en la ficha de producto.
+     *
+     * Devuelve null cuando no hay una garantía que mostrar (vacío, "-", sólo
+     * dígitos, "0 meses" o "sin garantía"). Un texto no reconocido se conserva
+     * saneado, para no ocultar formatos válidos como "2 años".
+     *
+     * @see .spec/specs/SPEC-0015-garantia-de-producto.md
+     *
+     * @return string|null
+     */
+    public static function map_warranty(array $row)
+    {
+        $raw   = isset($row['warranty']) && is_scalar($row['warranty']) ? (string) $row['warranty'] : '';
+        $value = sanitize_text_field($raw);
+
+        if (preg_match('/^(\d+)\s*mes(es)?$/iu', $value, $matches)) {
+            $months = (int) $matches[1];
+            if ($months <= 0) {
+                return null;
+            }
+            return $months . ($months === 1 ? ' mes' : ' meses');
+        }
+
+        if ($value === '' || $value === '-' || ctype_digit($value) || preg_match('/^sin garant[ií]a$/iu', $value)) {
+            return null;
+        }
+
+        return $value;
+    }
 
     /**
      * Calcula el precio a guardar en regular_price.
